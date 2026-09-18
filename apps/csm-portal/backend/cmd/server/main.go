@@ -40,6 +40,8 @@ import (
 	"github.com/wso2-open-operations/cs-tools/apps/csm-portal/backend/internal/handler"
 	"github.com/wso2-open-operations/cs-tools/apps/csm-portal/backend/internal/middleware"
 	"github.com/wso2-open-operations/cs-tools/apps/csm-portal/backend/internal/notifications"
+	"github.com/wso2-open-operations/cs-tools/apps/csm-portal/backend/internal/plg"
+	plgconfig "github.com/wso2-open-operations/cs-tools/apps/csm-portal/backend/internal/plg/config"
 	"github.com/wso2-open-operations/cs-tools/apps/csm-portal/backend/internal/scim"
 	"github.com/wso2-open-operations/cs-tools/apps/csm-portal/backend/internal/sftpgo"
 	"github.com/wso2-open-operations/cs-tools/apps/csm-portal/backend/internal/updates"
@@ -354,6 +356,33 @@ func main() {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	// PLG Customer Success Portal. Its config, entity-service client, services,
+	// handlers, identity middleware and 26 plg/* routes are all assembled in
+	// internal/plg — this is the only line of csm-portal's own wiring the merge
+	// touches.
+	//
+	// Mounted on the same mux, so PLG runs inside the middleware chain below:
+	// SecurityHeaders, CORS, CorrelationID and — the reason the merge is worth
+	// doing — Auth. PLG's routes are JWT-validated by csm-portal, and the
+	// X-PLG-User header the standalone build trusted no longer exists.
+	//
+	// PLG inherits entity-service's address and credentials rather than keeping
+	// its own copy: it reaches the same service as the same OAuth2 application
+	// as every other upstream client above. PLG_* overrides exist but are not
+	// normally set.
+	stopPLG, err := plg.Mount(ctx, mux, os.Getenv("PLG_CONFIG_FILE"), plgconfig.EntityDefaults{
+		BaseURL:      customerEntityCfg.BaseURL,
+		TokenURL:     oauth2TokenURL,
+		ClientID:     oauth2ClientID,
+		ClientSecret: oauth2ClientSecret,
+		Scope:        os.Getenv("CUSTOMER_ENTITY_SCOPES"),
+	})
+	if err != nil {
+		slog.Error("failed to mount PLG", "err", err)
+		os.Exit(1)
+	}
+	defer stopPLG()
 
 	addr := ":" + mustPort("PORT", "8080")
 

@@ -25,6 +25,7 @@ import {
   useSearchParams,
 } from "react-router";
 import AuthGuard from "@layouts/AuthGuard";
+import { plgRoutes } from "@features/plg/PlgRoutes";
 import {
   LegacyQueryTabRedirect,
   SectionIndexRedirect,
@@ -272,6 +273,12 @@ export default function App(): JSX.Element {
               <Route element={<AuthGuard />}>
                 <Route element={<FeatureRouteGuard />}>
                   <Route path="/" element={<RootLanding />} />
+
+                  {/* PLG Customer Success Portal. Its pages, API hooks and nav
+                      section live under features/plg — this is the only line of
+                      csm-portal's routing the merge touches.
+                      */}
+                  {plgRoutes()}
 
                   {/* Customers — Accounts + Projects under one tabbed section.
                       BFF-backed pages (entity-service search + by-id endpoints).
