@@ -196,4 +196,3 @@ func checkViolationMessage(err error) (string, bool) {
 
 // toLower is strings.ToLower, named locally so the email comparison in
 // plg_users_repo.go reads as a decision rather than an incidental call.
-func toLower(s string) string { return strings.ToLower(s) }
