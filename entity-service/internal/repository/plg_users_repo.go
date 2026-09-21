@@ -78,14 +78,6 @@ func userConditions(f *domain.UserSearchFilters, b *argBuilder) []string {
 	return conds
 }
 
-func lowerAll(in []string) []string {
-	out := make([]string, 0, len(in))
-	for _, s := range in {
-		out = append(out, toLower(s))
-	}
-	return out
-}
-
 // SearchUsers runs the count and the page concurrently, on separate pool
 // connections — the pattern entity-service uses for every search (see
 // SearchCases). total may differ from the page by at most one concurrent write,
