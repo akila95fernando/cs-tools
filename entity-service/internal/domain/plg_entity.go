@@ -326,8 +326,8 @@ type UserRef struct {
 	Name  string `json:"name"`
 }
 
-// ProductRef is a slim reference to a supported WSO2 Cloud platform.
-type ProductRef struct {
+// PlgProductRef is a slim reference to a supported WSO2 Cloud platform.
+type PlgProductRef struct {
 	ID   string `json:"id"`
 	Code string `json:"code"`
 	Name string `json:"name"`
@@ -422,7 +422,7 @@ type SearchOrganizationsRequest struct {
 // column that could not exist while the stage lived on the organisation.
 type PlatformStage struct {
 	OrgPlatformID  string         `json:"orgPlatformId"`
-	Product        ProductRef     `json:"product"`
+	Product        PlgProductRef  `json:"product"`
 	LifecycleStage LifecycleStage `json:"lifecycleStage"`
 	StageName      string         `json:"stageName"`
 	RegisteredOn   time.Time      `json:"registeredOn"`
@@ -453,7 +453,7 @@ type SearchOrganizationsResponse struct {
 // products" card, and one tab in the strip above it.
 type PlatformCard struct {
 	OrgPlatformID    string            `json:"orgPlatformId"`
-	Product          ProductRef        `json:"product"`
+	Product          PlgProductRef     `json:"product"`
 	LifecycleStage   LifecycleStage    `json:"lifecycleStage"`
 	StageName        string            `json:"stageName"`
 	StageEnteredOn   time.Time         `json:"stageEnteredOn"`
@@ -543,7 +543,7 @@ type PlaybookTask struct {
 // this playbook.
 type Playbook struct {
 	ID             string         `json:"id"`
-	Product        ProductRef     `json:"product"`
+	Product        PlgProductRef  `json:"product"`
 	Name           string         `json:"name"`
 	Description    *string        `json:"description"`
 	LifecycleStage LifecycleStage `json:"lifecycleStage"`
@@ -712,10 +712,10 @@ type LifecycleEntry struct {
 
 // ProductDetail is the product tab, in the order it renders.
 type ProductDetail struct {
-	OrgPlatformID    string     `json:"orgPlatformId"`
-	OrganizationID   string     `json:"organizationId"`
-	OrganizationName string     `json:"organizationName"`
-	Product          ProductRef `json:"product"`
+	OrgPlatformID    string        `json:"orgPlatformId"`
+	OrganizationID   string        `json:"organizationId"`
+	OrganizationName string        `json:"organizationName"`
+	Product          PlgProductRef `json:"product"`
 
 	// The lifecycle diagram — both axes.
 	LifecycleStage LifecycleStage `json:"lifecycleStage"`
@@ -852,7 +852,7 @@ type RegistrationItem struct {
 	OrgPlatformID    string         `json:"orgPlatformId"`
 	OrganizationID   string         `json:"organizationId"`
 	OrganizationName string         `json:"organizationName"`
-	Product          ProductRef     `json:"product"`
+	Product          PlgProductRef  `json:"product"`
 	RegisteredEmail  string         `json:"registeredEmail"`
 	RegisteredName   *string        `json:"registeredName"`
 	RegisteredOn     time.Time      `json:"registeredOn"`
@@ -934,7 +934,7 @@ type WorkQueueItem struct {
 	OrgPlatformID    string         `json:"orgPlatformId"`
 	OrganizationID   string         `json:"organizationId"`
 	OrganizationName string         `json:"organizationName"`
-	Product          ProductRef     `json:"product"`
+	Product          PlgProductRef  `json:"product"`
 	CurrentStage     LifecycleStage `json:"currentStage"`
 	StageName        string         `json:"stageName"`
 	Reason           QueueReason    `json:"reason"`
@@ -987,9 +987,9 @@ type StageTile struct {
 
 // ProductQueueGroup is the tiles for one product.
 type ProductQueueGroup struct {
-	Product  ProductRef  `json:"product"`
-	Pairings int         `json:"pairings"`
-	Tiles    []StageTile `json:"tiles"`
+	Product  PlgProductRef `json:"product"`
+	Pairings int           `json:"pairings"`
+	Tiles    []StageTile   `json:"tiles"`
 }
 
 // WorkQueueFilters narrows the queue. These are exactly the four the requirement

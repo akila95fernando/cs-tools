@@ -73,9 +73,9 @@ func userRef(id, email, name *string) *domain.UserRef {
 	return ref
 }
 
-// productRef assembles a ProductRef from three non-null columns.
-func productRef(id, code, name string) domain.ProductRef {
-	return domain.ProductRef{ID: id, Code: code, Name: name}
+// productRef assembles a PlgProductRef from three non-null columns.
+func productRef(id, code, name string) domain.PlgProductRef {
+	return domain.PlgProductRef{ID: id, Code: code, Name: name}
 }
 
 // stringsOf converts a slice of string-kinded enums to plain strings, so they
