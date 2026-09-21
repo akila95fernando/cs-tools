@@ -6470,6 +6470,1333 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorPayload'
 
+# ── PLG Customer Success Portal ──────────────────────────────────────────
+  /plg/me:
+    get:
+      summary: The calling PLG CS engineer.
+      description: "Returns the caller as PLG knows them, resolved from the validated token's email to a `user` row. No upstream call is made: the identity middleware has already resolved the caller in order to admit the request at all."
+      operationId: plgGetMe
+      responses:
+        "200":
+          description: The caller.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlgUserRef"
+        "400":
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "401":
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "403":
+          description: Forbidden — the caller is authenticated but is not PLG CS staff.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+  /plg/products:
+    get:
+      summary: The platform catalogue.
+      description: The WSO2 Cloud platforms a customer can register for. Reference data that changes only with a migration.
+      operationId: plgListProducts
+      responses:
+        "200":
+          description: Every platform, in display order.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlgProductList"
+        "400":
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "401":
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "403":
+          description: Forbidden — the caller is authenticated but is not PLG CS staff.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+  /plg/cs-users:
+    get:
+      summary: PLG CS engineers, for the owner pickers.
+      description: "Active internal staff only. Customers and partner contacts share the `user` table and are never returned."
+      operationId: plgListCSUsers
+      responses:
+        "200":
+          description: Assignable engineers.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlgUserList"
+        "400":
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "401":
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "403":
+          description: Forbidden — the caller is authenticated but is not PLG CS staff.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+  /plg/lifecycle:
+    get:
+      summary: The lifecycle stage catalogue.
+      description: The six stages in movement order, each carrying where a progressive playbook leads and how many playbooks of each kind are authored there. Deliberately free of per-customer data so the same payload can be cached and drawn on any page.
+      operationId: plgLifecycleCatalogue
+      responses:
+        "200":
+          description: The stages.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlgLifecycleCatalogue"
+        "400":
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "401":
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "403":
+          description: Forbidden — the caller is authenticated but is not PLG CS staff.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+  /plg/organizations/search:
+    post:
+      summary: Search organisations.
+      description: Filters are ANDed. Every filter is optional; an empty body returns the first page of everything.
+      operationId: plgSearchOrganizations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlgSearchOrganizationsRequest"
+      responses:
+        "200":
+          description: Matching organisations.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlgOrganizationSearchResponse"
+        "400":
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "401":
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "403":
+          description: Forbidden — the caller is authenticated but is not PLG CS staff.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+  /plg/organizations/{organizationId}:
+    get:
+      summary: One organisation, with its platform cards.
+      description: "The overview tab: the customer's own facts plus one card per platform they have registered for."
+      operationId: plgGetOrganization
+      parameters:
+        - name: organizationId
+          in: path
+          required: true
+          description: "The organisation's id."
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: The organisation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlgOrganization"
+        "400":
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "401":
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "403":
+          description: Forbidden — the caller is authenticated but is not PLG CS staff.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "404":
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+    patch:
+      summary: "Reassign the organisation's CS owner."
+      description: "One engineer owns the customer and every pairing under it, so this moves all of its pairings into the new owner's work queue at once. `ownerId` must name a person: an organisation cannot be left unassigned once claimed."
+      operationId: plgPatchOrganization
+      parameters:
+        - name: organizationId
+          in: path
+          required: true
+          description: "The organisation's id."
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlgPatchOrganizationRequest"
+      responses:
+        "200":
+          description: The reloaded organisation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlgOrganization"
+        "400":
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "401":
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "403":
+          description: Forbidden — the caller is authenticated but is not PLG CS staff.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "404":
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+  /plg/organizations/{organizationId}/products/{product}:
+    get:
+      summary: One pairing — the product tab.
+      description: "A pairing is one organisation on one platform, and is the unit of work in PLG. The response is the whole tab in one round trip: the three tracked axes with their provenance, the playbooks running and available, the notes, and the lifecycle history."
+      operationId: plgGetPairing
+      parameters:
+        - name: organizationId
+          in: path
+          required: true
+          description: "The organisation's id."
+          schema:
+            type: string
+            format: uuid
+        - name: product
+          in: path
+          required: true
+          description: "A platform code such as `IAM`, or the platform's id."
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The pairing.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlgPairing"
+        "400":
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "401":
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "403":
+          description: Forbidden — the caller is authenticated but is not PLG CS staff.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "404":
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+    patch:
+      summary: "Move a pairing's stage, health, tier or trial dates."
+      description: "Any combination of the three tracked axes in one request, applied in one transaction. A reason is REQUIRED whenever `lifecycleStage`, `healthState` or `subscriptionTier` changes \u2014 the trial dates take none, being copied off a contract rather than judged. Send `expectedStage` to make the stage move conditional on the stage the caller read; a `409` means someone moved it first. Stages move forward only, or out to `ABANDONED`."
+      operationId: plgPatchPairing
+      parameters:
+        - name: organizationId
+          in: path
+          required: true
+          description: "The organisation's id."
+          schema:
+            type: string
+            format: uuid
+        - name: product
+          in: path
+          required: true
+          description: "A platform code such as `IAM`, or the platform's id."
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlgPatchPairingRequest"
+      responses:
+        "200":
+          description: The reloaded pairing.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlgPairing"
+        "400":
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "401":
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "403":
+          description: Forbidden — the caller is authenticated but is not PLG CS staff.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "404":
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "409":
+          description: Conflict — the resource moved under the caller.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+  /plg/organizations/{organizationId}/products/{product}/playbook-runs:
+    post:
+      summary: Attach a playbook to a pairing.
+      description: "Copies the template's active tasks onto the pairing. Idempotent: re-attaching an already attached playbook succeeds and changes nothing. Only playbooks authored for the pairing's current stage AND of a kind its health calls for may be attached."
+      operationId: plgAttachPlaybook
+      parameters:
+        - name: organizationId
+          in: path
+          required: true
+          description: "The organisation's id."
+          schema:
+            type: string
+            format: uuid
+        - name: product
+          in: path
+          required: true
+          description: "A platform code such as `IAM`, or the platform's id."
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlgAttachPlaybookRequest"
+      responses:
+        "200":
+          description: The reloaded pairing.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlgPairing"
+        "400":
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "401":
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "403":
+          description: Forbidden — the caller is authenticated but is not PLG CS staff.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "404":
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+  /plg/organizations/{organizationId}/products/{product}/notes:
+    post:
+      summary: Add a note to a pairing.
+      description: Notes are append-only. Editing one keeps the superseded body as a revision, because a note records what was true when it was written.
+      operationId: plgCreateNote
+      parameters:
+        - name: organizationId
+          in: path
+          required: true
+          description: "The organisation's id."
+          schema:
+            type: string
+            format: uuid
+        - name: product
+          in: path
+          required: true
+          description: "A platform code such as `IAM`, or the platform's id."
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlgCreateNoteRequest"
+      responses:
+        "200":
+          description: The reloaded pairing.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlgPairing"
+        "400":
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "401":
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "403":
+          description: Forbidden — the caller is authenticated but is not PLG CS staff.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "404":
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+  /plg/playbook-runs/{playbookRunId}:
+    delete:
+      summary: Detach a playbook run from its pairing.
+      description: Permitted only while the run is still open. A closed run records an outcome and deleting it would erase that, so the refusal is part of the delete statement rather than a check before it.
+      operationId: plgDetachRun
+      parameters:
+        - name: playbookRunId
+          in: path
+          required: true
+          description: "The run's id."
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: The reloaded pairing.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlgPairing"
+        "400":
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "401":
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "403":
+          description: Forbidden — the caller is authenticated but is not PLG CS staff.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "404":
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+  /plg/playbook-run-tasks/{taskId}:
+    patch:
+      summary: "Record a task's value."
+      description: "The accepted field depends on the task's declared type: `boolValue`, `stringValue`, `numberValue`, or `selectedOptions` for `CHECKLIST` and `SINGLE_SELECT`. Completeness is derived from the value, so there is no way to mark a task done without recording what was done."
+      operationId: plgPatchRunTask
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          description: "The run task's id."
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlgPatchRunTaskRequest"
+      responses:
+        "200":
+          description: The reloaded pairing.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlgPairing"
+        "400":
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "401":
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "403":
+          description: Forbidden — the caller is authenticated but is not PLG CS staff.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "404":
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+  /plg/notes/{noteId}:
+    patch:
+      summary: "Correct a note's wording."
+      description: "Only the note's author may edit it \u2014 the one permission check in the portal. The superseded body is kept as a revision."
+      operationId: plgUpdateNote
+      parameters:
+        - name: noteId
+          in: path
+          required: true
+          description: "The note's id."
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlgUpdateNoteRequest"
+      responses:
+        "200":
+          description: The reloaded pairing.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlgPairing"
+        "400":
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "401":
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "403":
+          description: Forbidden — the caller is authenticated but is not PLG CS staff.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "404":
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+  /plg/registrations/search:
+    post:
+      summary: Search new registrations.
+      description: "A registration is a pairing nobody has acknowledged yet. `acknowledged` is a filter over that state rather than a stored flag."
+      operationId: plgSearchRegistrations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlgSearchRegistrationsRequest"
+      responses:
+        "200":
+          description: Matching registrations.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlgRegistrationSearchResponse"
+        "400":
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "401":
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "403":
+          description: Forbidden — the caller is authenticated but is not PLG CS staff.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+  /plg/registrations/{orgPlatformId}/acknowledge:
+    post:
+      summary: Claim a registration.
+      description: "Acknowledging moves the pairing into someone's work queue. With an empty body the caller claims it themselves; pass `ownerId` to hand it to a colleague. Acknowledging a second platform for a customer does not reassign an organisation someone else already owns. A `409` means it was already claimed."
+      operationId: plgAcknowledgeRegistration
+      parameters:
+        - name: orgPlatformId
+          in: path
+          required: true
+          description: "The pairing's id."
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlgAcknowledgeRequest"
+      responses:
+        "200":
+          description: The reloaded pairing.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlgPairing"
+        "400":
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "401":
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "403":
+          description: Forbidden — the caller is authenticated but is not PLG CS staff.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "404":
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "409":
+          description: Conflict — the resource moved under the caller.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+  /plg/playbooks:
+    get:
+      summary: Playbook templates.
+      description: "Every template, or one platform's. A template is scoped to a platform, a lifecycle stage and a kind."
+      operationId: plgListPlaybooks
+      parameters:
+        - name: product
+          in: query
+          required: false
+          description: Restrict to one platform code.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The templates and their tasks.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlgPlaybookList"
+        "400":
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "401":
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "403":
+          description: Forbidden — the caller is authenticated but is not PLG CS staff.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+  /plg/products/{product}/playbooks:
+    post:
+      summary: Author a playbook template.
+      description: "`playbookType` and `lifecycleStage` are both required and neither is defaulted: the most common answer is exactly what makes a default dangerous, since forgetting to choose would publish a plausible playbook at the wrong stage. The two reserved bookend tasks are added automatically."
+      operationId: plgCreatePlaybook
+      parameters:
+        - name: product
+          in: path
+          required: true
+          description: "A platform code such as `IAM`, or the platform's id."
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlgCreatePlaybookRequest"
+      responses:
+        "200":
+          description: The created template.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlgPlaybook"
+        "400":
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "401":
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "403":
+          description: Forbidden — the caller is authenticated but is not PLG CS staff.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "404":
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+  /plg/playbooks/{playbookId}:
+    get:
+      summary: One playbook template.
+      description: Returns the template and its tasks.
+      operationId: plgGetPlaybook
+      parameters:
+        - name: playbookId
+          in: path
+          required: true
+          description: "The template's id."
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: The template.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlgPlaybook"
+        "400":
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "401":
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "403":
+          description: Forbidden — the caller is authenticated but is not PLG CS staff.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "404":
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+    patch:
+      summary: Rename, restage, retype or deactivate a template.
+      description: Deactivating withdraws the template from every pairing that has not already attached it; runs already under way are unaffected.
+      operationId: plgPatchPlaybook
+      parameters:
+        - name: playbookId
+          in: path
+          required: true
+          description: "The template's id."
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlgPatchPlaybookRequest"
+      responses:
+        "200":
+          description: The updated template.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlgPlaybook"
+        "400":
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "401":
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "403":
+          description: Forbidden — the caller is authenticated but is not PLG CS staff.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "404":
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+    delete:
+      summary: Delete a playbook template.
+      description: Refused while any pairing has a run attached to it — deactivate it instead.
+      operationId: plgDeletePlaybook
+      parameters:
+        - name: playbookId
+          in: path
+          required: true
+          description: "The template's id."
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted.
+        "400":
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "401":
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "403":
+          description: Forbidden — the caller is authenticated but is not PLG CS staff.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "404":
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "409":
+          description: Conflict — the resource moved under the caller.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+  /plg/playbooks/{playbookId}/tasks:
+    put:
+      summary: "Replace a template's task list."
+      description: "A whole-list replace rather than per-task edits, so the order the author sees is the order stored. The two reserved bookend tasks cannot be removed or retyped. `CHECKLIST` and `SINGLE_SELECT` tasks must carry `options`; no other type may."
+      operationId: plgReplacePlaybookTasks
+      parameters:
+        - name: playbookId
+          in: path
+          required: true
+          description: "The template's id."
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlgReplaceTasksRequest"
+      responses:
+        "200":
+          description: The updated template.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlgPlaybook"
+        "400":
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "401":
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "403":
+          description: Forbidden — the caller is authenticated but is not PLG CS staff.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "404":
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+  /plg/analytics/dashboard:
+    get:
+      summary: Dashboard aggregates.
+      description: "Counts and distributions for the leadership and workspace dashboards. `from`/`to` scope the cohort measures only \u2014 queue-style counts stay current whatever period is selected, so a backlog can never be hidden by changing a date."
+      operationId: plgDashboard
+      parameters:
+        - name: from
+          in: query
+          required: false
+          description: "Start of the cohort window, `YYYY-MM-DD`."
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: false
+          description: "End of the cohort window, `YYYY-MM-DD`."
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: The aggregates.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlgDashboard"
+        "400":
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "401":
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "403":
+          description: Forbidden — the caller is authenticated but is not PLG CS staff.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+  /plg/work-queue:
+    get:
+      summary: The work queue.
+      description: "One row per pairing that still has something to do \u2014 a run going, a run untouched, or a playbook still attachable for its current health. A pairing with everything closed and nothing left to attach leaves the queue rather than sitting in it. Every filter is repeatable. `mine=true` is resolved to the caller's own id before the request leaves this service."
+      operationId: plgWorkQueue
+      parameters:
+        - name: mine
+          in: query
+          required: false
+          description: "Restrict to the caller's own customers."
+          schema:
+            type: boolean
+        - name: owner
+          in: query
+          required: false
+          description: "Restrict to one owner's id."
+          schema:
+            type: string
+            format: uuid
+        - name: product
+          in: query
+          required: false
+          description: Repeatable. Platform codes.
+          schema:
+            type: string
+        - name: stage
+          in: query
+          required: false
+          description: Repeatable. Lifecycle stages.
+          schema:
+            type: string
+        - name: health
+          in: query
+          required: false
+          description: "Repeatable. `HEALTHY` or `AT_RISK`."
+          schema:
+            type: string
+        - name: reason
+          in: query
+          required: false
+          description: "Repeatable. `NO_PLAYBOOK`, `NOT_STARTED` or `IN_PROGRESS`."
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The queue, its tiles and its reason breakdown.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlgWorkQueue"
+        "400":
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "401":
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "403":
+          description: Forbidden — the caller is authenticated but is not PLG CS staff.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+  /plg/webhooks/registrations:
+    post:
+      summary: Land registrations from the source feed.
+      description: "Machine-to-machine. This is the PUSH path and is unused where the queue poller is enabled \u2014 there, registrations are pulled from the queue and landed in-process without passing through here. It remains the route by which a failed `plg_ingest_failure` row is replayed, by posting it back verbatim. The body may be a source envelope, an array of records, or a single record. Unlike every other route here it does NOT require PLG staff: a queue delivery is not a person, so authorisation is the `X-PLG-Webhook-Secret` shared secret instead. An unset secret disables that check."
+      operationId: plgIngestRegistrations
+      parameters:
+        - name: X-PLG-Webhook-Secret
+          in: header
+          required: false
+          description: The shared secret, when one is configured.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlgIngestRegistrationsRequest"
+      responses:
+        "202":
+          description: Accepted. Each record lands independently; one bad record does not reject the rest.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlgIngestResult"
+        "400":
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "401":
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+  /plg/webhooks/registration:
+    post:
+      summary: Land registrations from the source feed. Singular alias.
+      description: "Machine-to-machine. This is the PUSH path and is unused where the queue poller is enabled \u2014 there, registrations are pulled from the queue and landed in-process without passing through here. It remains the route by which a failed `plg_ingest_failure` row is replayed, by posting it back verbatim. The body may be a source envelope, an array of records, or a single record. Unlike every other route here it does NOT require PLG staff: a queue delivery is not a person, so authorisation is the `X-PLG-Webhook-Secret` shared secret instead. An unset secret disables that check."
+      operationId: plgIngestRegistrationsAlias
+      parameters:
+        - name: X-PLG-Webhook-Secret
+          in: header
+          required: false
+          description: The shared secret, when one is configured.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlgIngestRegistrationsRequest"
+      responses:
+        "202":
+          description: Accepted. Each record lands independently; one bad record does not reject the rest.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlgIngestResult"
+        "400":
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "401":
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorPayload"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -13742,3 +15069,1075 @@ components:
           type: array
           items:
             type: string
+
+    # ── PLG Customer Success Portal ──────────────────────────────────
+    PlgUserRef:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        name:
+          type: string
+    PlgProductList:
+      type: object
+      properties:
+        products:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              code:
+                type: string
+              name:
+                type: string
+              displayOrder:
+                type: integer
+              active:
+                type: boolean
+    PlgUserList:
+      type: object
+      properties:
+        users:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              email:
+                type: string
+              name:
+                type: string
+    PlgLifecycleCatalogue:
+      type: object
+      properties:
+        stages:
+          type: array
+          items:
+            type: object
+            properties:
+              stage:
+                type: string
+              name:
+                type: string
+              displayOrder:
+                type: integer
+              description:
+                type: string
+              nextStage:
+                type: string
+              terminal:
+                type: boolean
+              progressivePlaybooks:
+                type: integer
+              recoveryPlaybooks:
+                type: integer
+              sustainingPlaybooks:
+                type: integer
+    PlgOrganization:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        organizationName:
+          type: string
+        createdOn:
+          type: string
+          format: date-time
+        registeredEmail:
+          type: string
+        registeredName:
+          nullable: true
+          type: string
+        owner:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            email:
+              type: string
+            name:
+              type: string
+        countryName:
+          type: string
+        companyNameFromDomain:
+          type: string
+        moesifCompanyId:
+          type: string
+        fieldsInherited:
+          type: boolean
+        platformCards:
+          type: array
+          items:
+            type: object
+            properties:
+              orgPlatformId:
+                type: string
+                format: uuid
+              product:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  code:
+                    type: string
+                  name:
+                    type: string
+              lifecycleStage:
+                type: string
+              stageName:
+                type: string
+              stageEnteredOn:
+                type: string
+                format: date-time
+              registeredOn:
+                type: string
+                format: date-time
+              subscriptionTier:
+                type: string
+              runActive:
+                type: integer
+              runTotal:
+                type: integer
+              taskCompleted:
+                type: integer
+              taskTotal:
+                type: integer
+              isNew:
+                type: boolean
+    PlgOrganizationSearchResponse:
+      type: object
+      properties:
+        organizations:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              organizationName:
+                type: string
+              registeredEmail:
+                type: string
+              registeredName:
+                nullable: true
+                type: string
+              registeredOn:
+                type: string
+                format: date-time
+              platformStages:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    orgPlatformId:
+                      type: string
+                      format: uuid
+                    product:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        code:
+                          type: string
+                        name:
+                          type: string
+                    lifecycleStage:
+                      type: string
+                    stageName:
+                      type: string
+                    registeredOn:
+                      type: string
+                      format: date-time
+                    isNew:
+                      type: boolean
+              owner:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  email:
+                    type: string
+                  name:
+                    type: string
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+    PlgPairing:
+      type: object
+      properties:
+        orgPlatformId:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        organizationName:
+          type: string
+        product:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            code:
+              type: string
+            name:
+              type: string
+        lifecycleStage:
+          type: string
+        stageName:
+          type: string
+        stageEnteredOn:
+          type: string
+          format: date-time
+        healthState:
+          type: string
+        healthEnteredOn:
+          type: string
+          format: date-time
+        healthUpdatedBy:
+          nullable: true
+          type: string
+        applicablePlaybookTypes:
+          type: array
+          items:
+            type: string
+        carriesPlaybooks:
+          type: boolean
+        registeredOn:
+          type: string
+          format: date-time
+        registeredEmail:
+          type: string
+        subscriptionTier:
+          type: string
+        subscriptionEnteredOn:
+          type: string
+          format: date-time
+        subscriptionUpdatedBy:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            email:
+              type: string
+            name:
+              type: string
+        trialEndDate:
+          nullable: true
+          type: string
+        trialExtendedDate:
+          nullable: true
+          type: string
+        currentPeriodEndDate:
+          nullable: true
+          type: string
+        acknowledgedOn:
+          type: string
+          format: date-time
+        acknowledgedBy:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            email:
+              type: string
+            name:
+              type: string
+        isNew:
+          type: boolean
+        runs:
+          type: array
+          items:
+            type: object
+        progress:
+          type: object
+          properties:
+            runTotal:
+              type: integer
+            runActive:
+              type: integer
+            runClosed:
+              type: integer
+            taskTotal:
+              type: integer
+            taskCompleted:
+              type: integer
+        availablePlaybooks:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              product:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  code:
+                    type: string
+                  name:
+                    type: string
+              name:
+                type: string
+              description:
+                nullable: true
+                type: string
+              lifecycleStage:
+                type: string
+              stageName:
+                type: string
+              playbookType:
+                type: string
+              displayOrder:
+                type: integer
+              active:
+                type: boolean
+              tasks:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      format: uuid
+                    code:
+                      type: string
+                    name:
+                      type: string
+                    description:
+                      type: string
+                    sequenceNo:
+                      type: integer
+                    valueType:
+                      type: string
+                    options:
+                      nullable: true
+                      type: string
+                    active:
+                      type: boolean
+                    isBookend:
+                      type: boolean
+              runCount:
+                type: integer
+              activeRuns:
+                type: integer
+              createdOn:
+                type: string
+                format: date-time
+              updatedOn:
+                type: string
+                format: date-time
+        notes:
+          type: array
+          items:
+            type: object
+        lifecycleHistory:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              fromStage:
+                nullable: true
+                type: string
+              toStage:
+                nullable: true
+                type: string
+              toName:
+                nullable: true
+                type: string
+              fromHealth:
+                nullable: true
+                type: string
+              toHealth:
+                nullable: true
+                type: string
+              fromSubscription:
+                nullable: true
+                type: string
+              toSubscription:
+                type: string
+              reason:
+                type: string
+              changedBy:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  email:
+                    type: string
+                  name:
+                    type: string
+              changedOn:
+                type: string
+                format: date-time
+    PlgPlaybookList:
+      type: object
+      properties:
+        playbooks:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              product:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  code:
+                    type: string
+                  name:
+                    type: string
+              name:
+                type: string
+              description:
+                nullable: true
+                type: string
+              lifecycleStage:
+                type: string
+              stageName:
+                type: string
+              playbookType:
+                type: string
+              displayOrder:
+                type: integer
+              active:
+                type: boolean
+              tasks:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      format: uuid
+                    code:
+                      type: string
+                    name:
+                      type: string
+                    description:
+                      type: string
+                    sequenceNo:
+                      type: integer
+                    valueType:
+                      type: string
+                    options:
+                      nullable: true
+                      type: string
+                    active:
+                      type: boolean
+                    isBookend:
+                      type: boolean
+              runCount:
+                type: integer
+              activeRuns:
+                type: integer
+              createdOn:
+                type: string
+                format: date-time
+              updatedOn:
+                type: string
+                format: date-time
+    PlgDashboard:
+      type: object
+      properties:
+        summary:
+          type: object
+          properties:
+            totalOrganizations:
+              type: integer
+            totalRegistrations:
+              type: integer
+            newRegistrations:
+              type: integer
+            pairingsNeedingAttention:
+              type: integer
+            trialsEndingSoon:
+              type: integer
+        registrationsByProduct:
+          type: array
+          items:
+            type: object
+            properties:
+              label:
+                type: string
+              count:
+                type: integer
+        registrationsByLifecycleStage:
+          type: array
+          items:
+            type: object
+            properties:
+              label:
+                type: string
+              count:
+                type: integer
+        subscriptionMix:
+          type: array
+          items:
+            type: object
+            properties:
+              label:
+                type: string
+              count:
+                type: integer
+        registrationsOverTime:
+          type: object
+          properties:
+            buckets:
+              type: array
+              items:
+                type: string
+                format: date
+            series:
+              type: array
+              items:
+                type: object
+                properties:
+                  label:
+                    type: string
+                  counts:
+                    type: array
+                    items:
+                      type: integer
+    PlgWorkQueue:
+      type: object
+      properties:
+        productGroups:
+          type: array
+          items:
+            type: object
+            properties:
+              product:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  code:
+                    type: string
+                  name:
+                    type: string
+              pairings:
+                type: integer
+              tiles:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    lifecycleStage:
+                      type: string
+                    stageName:
+                      type: string
+                    pairings:
+                      type: integer
+                    atRisk:
+                      type: integer
+                    noPlaybook:
+                      type: integer
+                    notStarted:
+                      type: integer
+                    inProgress:
+                      type: integer
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              healthState:
+                type: string
+              healthEnteredOn:
+                type: string
+                format: date-time
+              orgPlatformId:
+                type: string
+                format: uuid
+              organizationId:
+                type: string
+                format: uuid
+              organizationName:
+                type: string
+              product:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  code:
+                    type: string
+                  name:
+                    type: string
+              currentStage:
+                type: string
+              stageName:
+                type: string
+              reason:
+                type: string
+              runActive:
+                type: integer
+              runTotal:
+                type: integer
+              taskCompleted:
+                type: integer
+              taskTotal:
+                type: integer
+              availablePlaybooks:
+                type: integer
+              playbookId:
+                nullable: true
+                type: string
+              playbookName:
+                nullable: true
+                type: string
+              nextTaskCode:
+                nullable: true
+                type: string
+              nextTaskName:
+                nullable: true
+                type: string
+              owner:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  email:
+                    type: string
+                  name:
+                    type: string
+              acknowledgedBy:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  email:
+                    type: string
+                  name:
+                    type: string
+              acknowledgedOn:
+                type: string
+                format: date-time
+              registeredOn:
+                type: string
+                format: date-time
+        total:
+          type: integer
+        byReason:
+          type: object
+          properties:
+            IN_PROGRESS:
+              type: integer
+            NOT_STARTED:
+              type: integer
+            NO_PLAYBOOK:
+              type: integer
+    PlgRegistrationSearchResponse:
+      type: object
+      properties:
+        registrations:
+          type: array
+          items:
+            type: object
+            properties:
+              orgPlatformId:
+                type: string
+                format: uuid
+              organizationId:
+                type: string
+                format: uuid
+              organizationName:
+                type: string
+              product:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  code:
+                    type: string
+                  name:
+                    type: string
+              registeredEmail:
+                type: string
+              registeredName:
+                nullable: true
+                type: string
+              registeredOn:
+                type: string
+                format: date-time
+              lifecycleStage:
+                type: string
+              stageName:
+                type: string
+              owner:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  email:
+                    type: string
+                  name:
+                    type: string
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+    PlgPlaybook:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        product:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            code:
+              type: string
+            name:
+              type: string
+        name:
+          type: string
+        description:
+          nullable: true
+          type: string
+        lifecycleStage:
+          type: string
+        stageName:
+          type: string
+        playbookType:
+          type: string
+        displayOrder:
+          type: integer
+        active:
+          type: boolean
+        tasks:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              code:
+                type: string
+              name:
+                type: string
+              description:
+                type: string
+              sequenceNo:
+                type: integer
+              valueType:
+                type: string
+              options:
+                nullable: true
+                type: string
+              active:
+                type: boolean
+              isBookend:
+                type: boolean
+        runCount:
+          type: integer
+        activeRuns:
+          type: integer
+        createdOn:
+          type: string
+          format: date-time
+        updatedOn:
+          type: string
+          format: date-time
+    PlgSearchOrganizationsRequest:
+      type: object
+      properties:
+        search:
+          type: string
+          description: Matches the organisation name.
+        lifecycleStages:
+          type: array
+          items:
+            type: string
+        healthStates:
+          type: array
+          items:
+            type: string
+        subscriptionTiers:
+          type: array
+          items:
+            type: string
+        productCodes:
+          type: array
+          items:
+            type: string
+        ownerIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        unowned:
+          type: boolean
+          description: Only organisations with no CS owner.
+        registeredFrom:
+          type: string
+          format: date
+        registeredTo:
+          type: string
+          format: date
+        pagination:
+          type: object
+          description: Defaults to limit 25, capped at 100.
+          properties:
+            limit:
+              type: integer
+            offset:
+              type: integer
+    PlgPatchOrganizationRequest:
+      type: object
+      required:
+        - ownerId
+      properties:
+        ownerId:
+          type: string
+          format: uuid
+          description: The new CS owner. Required — ownership always names a person.
+    PlgPatchPairingRequest:
+      type: object
+      properties:
+        expectedStage:
+          type: string
+          description: "Optimistic precondition: apply only while this is still the current stage."
+        lifecycleStage:
+          type: string
+        healthState:
+          type: string
+          description: "`HEALTHY` or `AT_RISK`."
+        subscriptionTier:
+          type: string
+          description: "`FREE`, `TRIAL`, `TRIAL_EXTENDED` or `PAYG`."
+        reason:
+          type: string
+          description: Required whenever a tracked axis changes. Must not be blank.
+        trialEndDate:
+          type: string
+          format: date
+          nullable: true
+          description: "The original trial's end date. Offered while the tier is `TRIAL`."
+        clearTrialEndDate:
+          type: boolean
+        trialExtendedDate:
+          type: string
+          format: date
+          nullable: true
+          description: "The extension's end date. Offered while the tier is `TRIAL_EXTENDED`."
+        clearTrialExtendedDate:
+          type: boolean
+    PlgAttachPlaybookRequest:
+      type: object
+      required:
+        - playbookId
+      properties:
+        playbookId:
+          type: string
+          format: uuid
+    PlgCreateNoteRequest:
+      type: object
+      required:
+        - body
+      properties:
+        body:
+          type: string
+    PlgUpdateNoteRequest:
+      type: object
+      required:
+        - body
+      properties:
+        body:
+          type: string
+    PlgPatchRunTaskRequest:
+      type: object
+      description: "Exactly the field matching the task's declared value type."
+      properties:
+        boolValue:
+          type: boolean
+          nullable: true
+        stringValue:
+          type: string
+          nullable: true
+        numberValue:
+          type: number
+          nullable: true
+        selectedOptions:
+          type: array
+          items:
+            type: string
+          nullable: true
+          description: "Option codes, for `CHECKLIST` and `SINGLE_SELECT`."
+    PlgSearchRegistrationsRequest:
+      type: object
+      properties:
+        search:
+          type: string
+        productCodes:
+          type: array
+          items:
+            type: string
+        acknowledged:
+          type: boolean
+          nullable: true
+          description: Omit for both; false for the New Registrations queue.
+        registeredFrom:
+          type: string
+          format: date
+        registeredTo:
+          type: string
+          format: date
+        pagination:
+          type: object
+          description: Defaults to limit 25, capped at 100.
+          properties:
+            limit:
+              type: integer
+            offset:
+              type: integer
+    PlgAcknowledgeRequest:
+      type: object
+      properties:
+        ownerId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Omit to claim it yourself.
+    PlgCreatePlaybookRequest:
+      type: object
+      required:
+        - name
+        - playbookType
+        - lifecycleStage
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        playbookType:
+          type: string
+          description: "`PROGRESSIVE`, `RECOVERY` or `SUSTAINING`. Required."
+        lifecycleStage:
+          type: string
+          description: "Required. Any stage except `ABANDONED`."
+        tasks:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlgPlaybookTaskInput"
+    PlgPatchPlaybookRequest:
+      type: object
+      description: At least one field must be supplied.
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        playbookType:
+          type: string
+        lifecycleStage:
+          type: string
+        active:
+          type: boolean
+    PlgReplaceTasksRequest:
+      type: object
+      required:
+        - tasks
+      properties:
+        tasks:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlgPlaybookTaskInput"
+    PlgPlaybookTaskInput:
+      type: object
+      required:
+        - name
+        - valueType
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        valueType:
+          type: string
+          description: "`BOOLEAN`, `STRING`, `NUMBER`, `CHECKLIST` or `SINGLE_SELECT`."
+        options:
+          type: array
+          items:
+            type: object
+            properties:
+              code:
+                type: string
+              label:
+                type: string
+          description: Required by the two list types and refused by the rest.
+    PlgIngestRegistrationsRequest:
+      type: object
+      description: "A source envelope, an array of records, or a single record. Keys are mapped through the deployment's source map, so the field names are configuration rather than contract."
+      properties:
+        added_companies:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+    PlgIngestResult:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              status:
+                type: string
+              organizationName:
+                type: string
+              organizationId:
+                type: string
+                format: uuid
+              orgPlatformId:
+                type: string
+                format: uuid
+              message:
+                type: string
