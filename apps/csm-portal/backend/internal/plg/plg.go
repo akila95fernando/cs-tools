@@ -213,30 +213,27 @@ func register(mux *http.ServeMux, h *handler.Handlers, identity func(http.Handle
 	add("GET /plg/analytics/dashboard", h.Dashboard)
 	add("GET /plg/work-queue", h.WorkQueue)
 
-	// The registration feed. Machine-to-machine: there is no end-user to resolve,
-	// so these skip PLG's identity middleware — it would reject every delivery
-	// for not being a person.
+	// The registration feed — PLG STAFF ONLY, like every route above.
 	//
-	// THEY ARE STILL BEHIND csm-portal's Auth. Skipping `identity` does not make
-	// them anonymous: Auth wraps the whole mux and rejects any request without a
-	// valid `x-jwt-assertion` before a handler runs. A publisher must therefore
-	// present BOTH a token and, when one is configured, the shared secret that
-	// `authorizeWebhook` checks — the secret is an additional gate, not a
-	// substitute for the token. Verified: no token gives 401 before the secret is
-	// ever read.
+	// These once skipped `identity` on the reasoning that a queue delivery is not
+	// a person. That was the wrong trade in this deployment. Registrations arrive
+	// by POLLING: queue.Poller calls the ingest service in-process and never
+	// touches these handlers, so no machine publisher needs them. What they are
+	// actually for is REPLAY — re-landing a parked plg_ingest_failure row — and
+	// that is done by an engineer, who is staff.
 	//
-	// The consequence worth knowing: because `identity` is skipped, these are the
-	// only PLG routes that do NOT require the caller to be PLG staff. With no
-	// shared secret configured, any authenticated csm-portal user can post a
-	// registration. Configure PLG_INGEST_SHARED_SECRET wherever this path is
-	// reachable.
+	// Leaving them unguarded meant any authenticated csm-portal user could create
+	// PLG organisations whenever PLG_INGEST_SHARED_SECRET was unset, because
+	// authorizeWebhook admits everyone when the secret is blank. Gating on
+	// identity removes that: the weakest configuration is now "staff only"
+	// instead of "anyone with a token".
 	//
-	// It is unused in a poll-based deployment: when the queue poller is on,
-	// registrations arrive through queue.Poller, which calls the ingest service
-	// in-process and never touches these handlers. What keeps them here is
-	// replay — a parked plg_ingest_failure row is re-landed by posting it back.
-	mux.HandleFunc("POST /plg/webhooks/registrations", h.Register)
-	mux.HandleFunc("POST /plg/webhooks/registration", h.Register)
+	// The shared secret still applies on top when configured, so a deployment
+	// that does want a machine publisher can keep one — but it would need a token
+	// belonging to an active INTERNAL user, which is the right amount of friction
+	// for something that creates customer records.
+	add("POST /plg/webhooks/registrations", h.Register)
+	add("POST /plg/webhooks/registration", h.Register)
 }
 
 // entityHTTPClient returns a client that attaches an OAuth2 bearer token to
