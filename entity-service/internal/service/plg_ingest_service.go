@@ -39,6 +39,12 @@ func NewIngestService(repo repository.IngestRepository, failures repository.Fail
 // structural: plg_organization's UNIQUE
 // organization_name is what makes a redelivered event a no-op.
 func (s *ingestService) Register(ctx context.Context, req domain.IngestRegistrationsRequest) (domain.IngestBatchResult, error) {
+	// Accepted and Failed are counted as the loop goes, not derived afterwards.
+	// They are part of this endpoint's JSON contract and the BFF's own ingest
+	// service populates them too (internal/plg/service/ingest_service.go), so a
+	// batch answering {"accepted":0,"failed":0} with results in it would be
+	// indistinguishable from a batch that did nothing — and silent to anything
+	// alerting on failed > 0.
 	out := domain.IngestBatchResult{Results: []domain.IngestResult{}}
 
 	for i := range req.Registrations {
@@ -60,11 +66,6 @@ func (s *ingestService) Register(ctx context.Context, req domain.IngestRegistrat
 		out.Results = append(out.Results, *res)
 		out.Accepted++
 	}
-	// Accepted and Failed are part of this endpoint's JSON contract and the BFF's
-	// own ingest service populates them (internal/plg/service/ingest_service.go).
-	// Left at zero here, a batch that failed entirely still answered
-	// {"accepted":0,"failed":0} — indistinguishable from a batch that did
-	// nothing, and silent to anything alerting on failed > 0.
 	return out, nil
 }
 
