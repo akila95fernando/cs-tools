@@ -90,6 +90,12 @@ func TestBooleanAndListOverrides(t *testing.T) {
 // An unset variable must leave the file's value alone — otherwise every
 // unspecified variable would silently zero a configured field.
 func TestUnsetEnvLeavesTheFileValue(t *testing.T) {
+	// t.Setenv first, then Unsetenv: t.Setenv is what registers the cleanup that
+	// puts the caller's own value back. Unsetting directly would delete it for
+	// the rest of the binary, so a developer who runs `go test` with this
+	// variable exported would have every later test see an environment they did
+	// not configure — and only when this test happened to run first.
+	t.Setenv("PLG_SERVER_REQUEST_TIMEOUT_SECONDS", "")
 	os.Unsetenv("PLG_SERVER_REQUEST_TIMEOUT_SECONDS")
 	c := &Config{}
 	c.Server.RequestTimeoutSeconds = 15

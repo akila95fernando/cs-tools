@@ -438,24 +438,24 @@ func (c *Config) Validate() error {
 
 	if c.Queue.Enabled {
 		if c.Queue.ConsumeURL == "" {
-			return errors.New("salesforceQueue.consumeUrl is required when the queue poller is enabled " +
-				"(config file `salesforceQueue.consumeUrl` or PLG_QUEUE_CONSUME_URL)")
+			return errors.New("queue.consumeUrl is required when the queue poller is enabled " +
+				"(config file `queue.consumeUrl` or PLG_QUEUE_CONSUME_URL)")
 		}
 		u, err := url.Parse(c.Queue.ConsumeURL)
 		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-			return fmt.Errorf("salesforceQueue.consumeUrl %q must be an absolute http(s) URL", c.Queue.ConsumeURL)
+			return fmt.Errorf("queue.consumeUrl %q must be an absolute http(s) URL", c.Queue.ConsumeURL)
 		}
 		if c.Queue.PollIntervalSeconds < 1 {
-			return fmt.Errorf("salesforceQueue.pollIntervalSeconds %d must be at least 1", c.Queue.PollIntervalSeconds)
+			return fmt.Errorf("queue.pollIntervalSeconds %d must be at least 1", c.Queue.PollIntervalSeconds)
 		}
 		if c.Queue.BatchSize < 1 {
-			return fmt.Errorf("salesforceQueue.batchSize %d must be at least 1", c.Queue.BatchSize)
+			return fmt.Errorf("queue.batchSize %d must be at least 1", c.Queue.BatchSize)
 		}
 		// A client that gives up before the queue answers turns every long poll
 		// into a timeout, and the backlog never clears.
 		if c.Queue.RequestTimeoutSeconds <= c.Queue.LongPollSeconds {
 			return fmt.Errorf(
-				"salesforceQueue.requestTimeoutSeconds (%d) must exceed longPollSeconds (%d)",
+				"queue.requestTimeoutSeconds (%d) must exceed longPollSeconds (%d)",
 				c.Queue.RequestTimeoutSeconds, c.Queue.LongPollSeconds)
 		}
 		if c.Queue.AuthToken != "" && c.Queue.AuthHeader == "" {

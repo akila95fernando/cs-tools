@@ -217,8 +217,11 @@ func validateTaskInputs(tasks []domain.PlaybookTaskInput) error {
 			t.ValueType = domain.ValueBoolean
 		}
 		if !domain.ValidTaskValueType[t.ValueType] {
+			// The list is built from the enum rather than written out, because a
+			// hand-written one drifts: this message omitted SINGLE_SELECT for as
+			// long as SINGLE_SELECT existed.
 			return apierror.Validation("task " + t.Code + " has an invalid valueType: " +
-				string(t.ValueType) + " (expected BOOLEAN, STRING, NUMBER or CHECKLIST)")
+				string(t.ValueType) + " (expected one of: " + valueTypeList() + ")")
 		}
 		if err := validateOptions(t); err != nil {
 			return err
@@ -271,4 +274,14 @@ func validateOptions(t *domain.PlaybookTaskInput) error {
 		seen[opt.Code] = true
 	}
 	return nil
+}
+
+// valueTypeList renders the accepted task value types for an error message,
+// from the enum's own order so it cannot fall out of step with it.
+func valueTypeList() string {
+	names := make([]string, 0, len(domain.TaskValueTypeOrder))
+	for _, t := range domain.TaskValueTypeOrder {
+		names = append(names, string(t))
+	}
+	return strings.Join(names, ", ")
 }

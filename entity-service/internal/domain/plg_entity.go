@@ -1110,9 +1110,9 @@ type Registration struct {
 // SourceTime is a timestamp as a source actually sends it.
 //
 // A plain time.Time would not do: Go's JSON decoder accepts RFC 3339 only, and
-// real payloads have carried "10/23/2019 10:31 PM" from a Salesforce callout and
-// "2026-09-03T10:59:41.472Z" from Moesif. Refusing either loses a whole
-// registration over a date format.
+// real payloads have carried both "2026-09-03T10:59:41.472Z" and the US display
+// form "10/23/2019 10:31 PM". Refusing either loses a whole registration over a
+// date format.
 type SourceTime struct {
 	time.Time
 }
@@ -1123,12 +1123,12 @@ type SourceTime struct {
 // something has actually sent, so adding one is a one-line change with an
 // obvious meaning.
 var sourceTimeLayouts = []string{
-	time.RFC3339,          // 2026-09-03T10:59:41.472Z  — Moesif, and the Salesforce REST API
+	time.RFC3339,          // 2026-09-03T10:59:41.472Z  — what Moesif sends
 	"2006-01-02T15:04:05", // 2026-09-03T11:11:48.132   — no zone
 	"2006-01-02 15:04:05",
 	"2006-01-02 15:04",
 	"1/2/2006 3:04:05 PM",
-	"1/2/2006 3:04 PM", // 10/23/2019 10:31 PM       — a formatted Salesforce callout
+	"1/2/2006 3:04 PM", // 10/23/2019 10:31 PM       — a US display format
 	"1/2/2006 15:04:05",
 	"1/2/2006 15:04",
 	"2006-01-02",
@@ -1366,9 +1366,18 @@ type RecordIngestFailureRequest struct {
 }
 
 // RecordIngestFailureResult answers POST /plg/ingest-failures.
-type RecordIngestFailureResult struct {
-	ID string `json:"id"`
-}
+//
+// Deliberately empty. The row's generated id is NOT returned: parking a failure
+// is fire-and-forget for the poller, and failures are worked through by querying
+// plg_ingest_failure directly — `WHERE resolved_on IS NULL`, which is the
+// partial index the table carries for exactly that sweep.
+//
+// It previously declared an `id` that nothing ever populated, so every success
+// answered `{"id":""}`. An always-blank field is worse than no field: a caller
+// can reasonably read it as the id, or read blank as failure when the write in
+// fact succeeded. Returning `{}` says what is true — it worked, and there is
+// nothing further to tell you.
+type RecordIngestFailureResult struct{}
 
 // ---------------------------------------------------------------------------
 // The work-queue search body
