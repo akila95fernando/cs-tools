@@ -188,7 +188,7 @@ CREATE TRIGGER trg_plg_product_updated_at BEFORE UPDATE ON plg_product
     FOR EACH ROW EXECUTE FUNCTION plg_set_updated_at();
 
 -- The platform name arrives already normalised to one of these codes: the
--- upstream webhook handler maps Salesforce's vocabulary before we see it.
+-- upstream webhook handler maps the source's vocabulary before we see it.
 INSERT INTO plg_product (code, name, display_order) VALUES
     ('IAM',                  'Identity & Access Management', 1),
     ('API_PLATFORM',         'API Platform',                 2),
@@ -245,10 +245,9 @@ INSERT INTO plg_lifecycle_stage (stage, name, display_order, description) VALUES
 -- The human who registered — a customer, not a CS engineer.
 --
 -- Keyed on a surrogate, with email as a UNIQUE attribute rather than the key —
--- the same shape `"user"` has. Email is on every Salesforce payload — including
--- the sparse
--- second-registration one — which is what makes the second organisation
--- resolvable without a mapping table.
+-- the same shape `"user"` has. Email is on every payload the source sends —
+-- including the sparse second-registration one — which is what makes the second
+-- organisation resolvable without a mapping table.
 CREATE TABLE plg_person (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email      TEXT        NOT NULL UNIQUE,
@@ -264,7 +263,7 @@ CREATE TRIGGER trg_plg_person_updated_at BEFORE UPDATE ON plg_person
 -- One Asgardeo organisation.
 --
 -- organization_name is globally unique, which does two jobs: it makes a
--- redelivered webhook event idempotent (the Salesforce id is absent on second
+-- redelivered webhook event idempotent (the source's record id is absent on second
 -- registrations, so there is nothing else to deduplicate on), and it is the key
 -- passed to the runtime product-analytics API.
 CREATE TABLE plg_organization (
@@ -758,12 +757,12 @@ CREATE INDEX idx_plg_note_author  ON plg_note (author);
 -- Added after the core: the overflow table, the ingest log, note revisions
 -- ---------------------------------------------------------------------------
 
--- Overflow storage for Salesforce fields beyond the fourteen the portal models.
+-- Overflow storage for source fields beyond the fourteen the portal models.
 --
 -- The fourteen core fields stay in their typed columns on plg_organization and
 -- plg_org_platform: every list, filter and chart reads them, and name/value
 -- pairs would make ordinary queries slow and awkward. This table is for the
--- rest — fields Salesforce sends that the portal has no column for, kept so they
+-- rest — fields the source sends that the portal has no column for, kept so they
 -- are available when someone later wants to analyse one.
 --
 -- Only fields named in the attribute map are stored (backend/source-map.json).
@@ -779,7 +778,7 @@ CREATE TABLE plg_organization_attribute (
     -- like — which is why the unique constraint below treats NULLs as equal.
     org_platform_id UUID REFERENCES plg_org_platform (id) ON DELETE CASCADE,
 
-    -- The portal-side name from the attribute map, not the Salesforce one, so a
+    -- The portal-side name from the attribute map, not the source's own, so a
     -- rename upstream does not change what queries here look for.
     attribute_name  TEXT NOT NULL,
 
@@ -787,7 +786,7 @@ CREATE TABLE plg_organization_attribute (
     -- what these mean; anything that needs a number casts at read time.
     attribute_value TEXT NOT NULL,
 
-    -- The Salesforce field this came from. Kept for troubleshooting: it is the
+    -- The source field this came from. Kept for troubleshooting: it is the
     -- only way to tell which upstream field produced a value after a map edit.
     source_field    TEXT NOT NULL,
 

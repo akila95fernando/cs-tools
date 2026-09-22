@@ -8439,7 +8439,10 @@ paths:
   /plg/ingest-failures:
     post:
       summary: Record a registration that could not be landed.
-      description: The payload is stored verbatim so the row can be replayed by posting it back to the ingest webhook.
+      description: >
+        The payload is stored verbatim so the row can be replayed by posting it
+        back to the ingest webhook. The response carries no identifier: rows are
+        found by querying plg_ingest_failure, not by a reference handed back here.
       operationId: plgRecordIngestFailure
       requestBody:
         required: true
@@ -8449,7 +8452,7 @@ paths:
               $ref: "#/components/schemas/PlgRecordIngestFailureRequest"
       responses:
         "200":
-          description: "The stored failure's id."
+          description: Recorded.
           content:
             application/json:
               schema:
@@ -20211,10 +20214,12 @@ components:
           type: string
     PlgIngestFailureResult:
       type: object
-      properties:
-        id:
-          type: string
-          format: uuid
+      description: >
+        Deliberately empty. The stored row's id is not returned — parking a
+        failure is fire-and-forget, and failures are worked through by querying
+        plg_ingest_failure directly (WHERE resolved_on IS NULL, which the table
+        carries a partial index for).
+      properties: {}
     PlgRunTaskShape:
       type: object
       properties:

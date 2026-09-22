@@ -288,6 +288,18 @@ func (s *orgPlatformService) PatchRunTask(ctx context.Context, req domain.PatchR
 		if req.BoolValue != nil || req.NumberValue != nil || req.CheckedCodes != nil {
 			return nil, apierror.Validation("this task holds text; send textValue")
 		}
+	case domain.ValueSingleSelect:
+		// SINGLE_SELECT stores the chosen option's CODE in the text column, so
+		// textValue is the field to send — the same storage as STRING, with the
+		// offered options constraining what may go in it. Without this case a
+		// SINGLE_SELECT task validated as nothing at all: any string was stored
+		// as the answer, including one the task never offered.
+		if req.BoolValue != nil || req.NumberValue != nil || req.CheckedCodes != nil {
+			return nil, apierror.Validation("this task takes one of its offered answers; send textValue")
+		}
+		if err := normalizeSelectedCode(req.TextValue, shape.OptionCodes); err != nil {
+			return nil, err
+		}
 	case domain.ValueChecklist:
 		if req.BoolValue != nil || req.NumberValue != nil || req.TextValue != nil {
 			return nil, apierror.Validation("this task is a checklist; send checkedCodes")
@@ -324,6 +336,33 @@ func (s *orgPlatformService) PatchRunTask(ctx context.Context, req domain.PatchR
 // The database cannot check this — an array element has no foreign key to the
 // options beside it — so an unrecognised code would otherwise be stored happily
 // and then never match anything in an analysis. Better to refuse it by name.
+// normalizeSelectedCode upper-cases and trims a SINGLE_SELECT answer in place,
+// and refuses one the task does not offer.
+//
+// The database cannot do this check: its constraint only requires the text be
+// non-blank, because the offered options live on the task row as JSONB rather
+// than in a foreign key. So this is the only thing standing between the API and
+// an answer nobody can interpret.
+func normalizeSelectedCode(value *string, offered []string) error {
+	if value == nil {
+		return nil
+	}
+	code := strings.ToUpper(strings.TrimSpace(*value))
+	if code == "" {
+		// An empty answer is the same intent as clearing, handled by the caller.
+		*value = ""
+		return nil
+	}
+	for _, c := range offered {
+		if code == c {
+			*value = code
+			return nil
+		}
+	}
+	return apierror.Validation("this task does not offer the answer " + code +
+		" (it offers: " + strings.Join(offered, ", ") + ")")
+}
+
 func normalizeCheckedCodes(codes *[]string, offered []string) error {
 	if codes == nil {
 		return nil

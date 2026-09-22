@@ -72,15 +72,35 @@ func Mount(
 		HTTPClient: entityHTTPClient(cfg.Entity.OAuth, timeout),
 	})
 
-	// Loaded before the listener opens: a malformed map is a startup failure,
+	// Loaded before the listener opens: a MALFORMED map is a startup failure,
 	// not something to discover on the first webhook delivery.
+	//
+	// A MISSING one is not, deliberately. PLG is a feature inside csm-portal, and
+	// this function's error is os.Exit(1) for the whole backend — so failing here
+	// would turn one feature's configuration mistake into an outage for cases,
+	// incidents, dashboards and everything else. It is also not destructive: a
+	// record the map cannot resolve is written to plg_ingest_failure verbatim and
+	// can be replayed once the file is mounted (see queue.Poller.recordFailure).
 	sourceMap, err := config.LoadSourceMap(cfg.Ingest.SourceMapPath)
 	if err != nil {
 		return nil, fmt.Errorf("plg: %w", err)
 	}
 	fields, platforms, attributes := sourceMap.Counts()
-	slog.Info("plg: source map loaded",
-		"fields", fields, "platformNames", platforms, "extraAttributes", attributes)
+
+	// WARN rather than INFO when ingestion is on and the map is empty, because
+	// that combination is always a mistake: the poller will consume events it
+	// cannot map and park every one of them in plg_ingest_failure. The counts
+	// alone said so at INFO, but "fields=0" is not something anyone reads a log
+	// looking for.
+	if cfg.Queue.Enabled && fields == 0 {
+		slog.Warn("plg: ingestion is enabled but the source map is empty — "+
+			"every registration will fail and be parked in plg_ingest_failure",
+			"sourceMapPath", cfg.Ingest.SourceMapPath,
+			"hint", "check PLG_SOURCE_MAP_PATH points at the mounted file")
+	} else {
+		slog.Info("plg: source map loaded",
+			"fields", fields, "platformNames", platforms, "extraAttributes", attributes)
+	}
 
 	handlers := handler.NewHandlers(
 		service.NewReferenceService(entityclient.ReferenceRepo{Client: entity}),
@@ -132,6 +152,24 @@ func Mount(
 // Every path is prefixed /plg — csm-portal's backend has 116 routes of its own
 // and `/products` means a different thing to each side. Verified before the
 // merge: zero path overlaps.
+// AUTHORISATION IS PLG'S OWN, NOT csm-portal's accessGuard, and that is a
+// decision rather than an omission.
+//
+// csm-portal's routes go through `accessGuard.Require(perm, h)`, which checks
+// the token's `roles` claim for PermView / PermWrite and so on. PLG's go
+// through `identity` instead — see middleware/identity.go — which resolves the
+// caller's email to a `"user".id` and refuses anyone who is not an ACTIVE
+// INTERNAL user with 403. These routes are not unguarded; they are guarded by a
+// different rule.
+//
+// The rule: any active internal engineer may work the customer-success queue.
+// There is deliberately no view/write split, because the queue is a shared
+// worklist rather than a permissioned record — an engineer who can see a
+// pairing is expected to act on it, and a read-only PLG user would be a person
+// who can watch work pile up and not touch it.
+//
+// If PLG ever needs to distinguish who may WRITE, this is the place to add it,
+// and accessGuard is the thing to reach for rather than a second scheme.
 func register(mux *http.ServeMux, h *handler.Handlers, identity func(http.Handler) http.Handler) {
 	add := func(pattern string, fn http.HandlerFunc) {
 		mux.Handle(pattern, identity(fn))
@@ -175,9 +213,28 @@ func register(mux *http.ServeMux, h *handler.Handlers, identity func(http.Handle
 	add("GET /plg/analytics/dashboard", h.Dashboard)
 	add("GET /plg/work-queue", h.WorkQueue)
 
-	// The registration feed. Machine-to-machine: no end-user identity, a shared
-	// secret checked in the handler instead — so these deliberately skip the
-	// identity middleware, which would reject every delivery.
+	// The registration feed. Machine-to-machine: there is no end-user to resolve,
+	// so these skip PLG's identity middleware — it would reject every delivery
+	// for not being a person.
+	//
+	// THEY ARE STILL BEHIND csm-portal's Auth. Skipping `identity` does not make
+	// them anonymous: Auth wraps the whole mux and rejects any request without a
+	// valid `x-jwt-assertion` before a handler runs. A publisher must therefore
+	// present BOTH a token and, when one is configured, the shared secret that
+	// `authorizeWebhook` checks — the secret is an additional gate, not a
+	// substitute for the token. Verified: no token gives 401 before the secret is
+	// ever read.
+	//
+	// The consequence worth knowing: because `identity` is skipped, these are the
+	// only PLG routes that do NOT require the caller to be PLG staff. With no
+	// shared secret configured, any authenticated csm-portal user can post a
+	// registration. Configure PLG_INGEST_SHARED_SECRET wherever this path is
+	// reachable.
+	//
+	// It is unused in a poll-based deployment: when the queue poller is on,
+	// registrations arrive through queue.Poller, which calls the ingest service
+	// in-process and never touches these handlers. What keeps them here is
+	// replay — a parked plg_ingest_failure row is re-landed by posting it back.
 	mux.HandleFunc("POST /plg/webhooks/registrations", h.Register)
 	mux.HandleFunc("POST /plg/webhooks/registration", h.Register)
 }

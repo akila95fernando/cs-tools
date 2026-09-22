@@ -54,10 +54,17 @@ func (s *ingestService) Register(ctx context.Context, req domain.IngestRegistrat
 				OrganizationName: reg.OrganizationName,
 				Message:          err.Error(),
 			})
+			out.Failed++
 			continue
 		}
 		out.Results = append(out.Results, *res)
+		out.Accepted++
 	}
+	// Accepted and Failed are part of this endpoint's JSON contract and the BFF's
+	// own ingest service populates them (internal/plg/service/ingest_service.go).
+	// Left at zero here, a batch that failed entirely still answered
+	// {"accepted":0,"failed":0} — indistinguishable from a batch that did
+	// nothing, and silent to anything alerting on failed > 0.
 	return out, nil
 }
 

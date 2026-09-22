@@ -71,12 +71,35 @@ export function usePlgApi(): PlgApi {
       }
 
       const text = await response.text();
-      const parsed: unknown = text ? JSON.parse(text) : null;
+
+      // The body is not guaranteed to be JSON, and the status is the thing worth
+      // keeping. A gateway that times out or fails in front of this service
+      // answers with HTML, not with the portal's error shape — parsing that
+      // first would throw a SyntaxError before the status was ever read, so the
+      // caller would see a parse error instead of the 502 that caused it. Every
+      // hook in this feature branches on ApiError.status, and a SyntaxError
+      // satisfies none of them.
+      let parsed: unknown = null;
+      let unreadable = false;
+      if (text) {
+        try {
+          parsed = JSON.parse(text);
+        } catch {
+          unreadable = true;
+        }
+      }
 
       if (!response.ok) {
         const message =
           (parsed as ErrorBody | null)?.message ?? `Request failed (${response.status})`;
         throw new ApiError(response.status, message);
+      }
+
+      // A 2xx whose body will not parse is still a failed request from the
+      // caller's point of view: returning it would hand a component `undefined`
+      // where it expects data, and fail somewhere further away instead.
+      if (unreadable) {
+        throw new ApiError(response.status, "The server sent a response this page could not read.");
       }
       return parsed as T;
     },
