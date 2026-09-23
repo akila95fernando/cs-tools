@@ -10,12 +10,7 @@
 package domain
 
 import (
-	"encoding/json"
-	"fmt"
-	"strings"
 	"time"
-
-	"github.com/wso2-open-operations/cs-tools/apps/csm-portal/backend/internal/plg/apierror"
 )
 
 // ---------------------------------------------------------------------------
@@ -1076,127 +1071,6 @@ type DashboardAnalytics struct {
 }
 
 // ---------------------------------------------------------------------------
-// Ingestion
-// ---------------------------------------------------------------------------
-
-// Registration is one incoming record, resolved into the portal's own terms.
-//
-// Deliberately not named after a source. The keys an event arrives with are
-// configuration — see the source map — so this type describes what the *portal*
-// needs, and a change of source moves a line of JSON rather than this struct.
-//
-// Every field but the first two is optional, because a source may simply not
-// send it. Absent stays absent: the sparse-upsert rule keeps NULL meaning
-// "never received".
-type Registration struct {
-	OrganizationName      string
-	RegisteredEmail       string
-	CreatedOn             *SourceTime
-	InitiatedPlatform     string
-	CountryName           string
-	CompanyNameFromDomain string
-	CompanyID             string
-	FirstName             string
-	LastName              string
-
-	// Extra holds the mapped extra fields, keyed by their portal-side name.
-	Extra map[string]string
-}
-
-// SourceTime is a timestamp as a source actually sends it.
-//
-// A plain time.Time would not do: Go's JSON decoder accepts RFC 3339 only, and
-// real payloads have carried both "2026-09-03T10:59:41.472Z" and the US display
-// form "10/23/2019 10:31 PM". Refusing either loses a whole registration over a
-// date format.
-type SourceTime struct {
-	time.Time
-}
-
-// sourceTimeLayouts are tried in order, most specific first.
-//
-// Deliberately explicit rather than a clever parser: every entry is a format
-// something has actually sent, so adding one is a one-line change with an
-// obvious meaning.
-var sourceTimeLayouts = []string{
-	time.RFC3339,          // 2026-09-03T10:59:41.472Z  — what Moesif sends
-	"2006-01-02T15:04:05", // 2026-09-03T11:11:48.132   — no zone
-	"2006-01-02 15:04:05",
-	"2006-01-02 15:04",
-	"1/2/2006 3:04:05 PM",
-	"1/2/2006 3:04 PM", // 10/23/2019 10:31 PM       — a US display format
-	"1/2/2006 15:04:05",
-	"1/2/2006 15:04",
-	"2006-01-02",
-	"1/2/2006",
-}
-
-// ParseSourceTime parses whichever of the known formats a value is in.
-//
-// A missing zone is read as UTC. That is a real assumption, not a neutral one: a
-// late-evening local time read as UTC can land on the previous day, so a
-// registration date can be out by one. It is the only defensible default without
-// knowing the sending system's timezone, and better than refusing the record.
-func ParseSourceTime(raw string) (*SourceTime, error) {
-	if raw = strings.TrimSpace(raw); raw == "" {
-		return nil, nil
-	}
-	for _, layout := range sourceTimeLayouts {
-		if parsed, err := time.Parse(layout, raw); err == nil {
-			return &SourceTime{Time: parsed.UTC()}, nil
-		}
-	}
-	// Present but unintelligible is reported rather than quietly replaced with
-	// "now": an absent date means the source did not send one, and inventing a
-	// registration date is worse than saying the value was not understood.
-	// Constructed as a struct literal rather than through a helper: this package
-	// uses entity-service's apierror verbatim, which exposes the error types and
-	// no constructors.
-	return nil, &apierror.ValidationError{Msg: fmt.Sprintf(
-		"%q is not a date this portal recognises (accepted: RFC 3339 such as "+
-			"2026-09-03T10:59:41Z, \"2026-09-03 10:59:41\", \"9/3/2026 10:59 AM\", \"2026-09-03\")", raw)}
-}
-
-// IngestResult reports what the portal did with one inbound payload.
-type IngestResult struct {
-	Status           string  `json:"status"`
-	OrganizationID   string  `json:"organizationId"`
-	OrganizationName string  `json:"organizationName"`
-	OrgPlatformID    *string `json:"orgPlatformId"`
-	PersonEmail      string  `json:"personEmail"`
-	Message          string  `json:"message"`
-}
-
-// IngestBatchResult reports what happened to each payload in a batch delivery.
-type IngestBatchResult struct {
-	Accepted int            `json:"accepted"`
-	Failed   int            `json:"failed"`
-	Results  []IngestResult `json:"results"`
-}
-
-// AttributeScope says whether an extra source field describes the customer
-// or one platform under it. The ingest cannot infer this, so the attribute map
-// declares it.
-type AttributeScope string
-
-// Attribute scopes.
-const (
-	// ScopeOrganization attaches the value to the customer.
-	ScopeOrganization AttributeScope = "organization"
-	// ScopePlatform attaches it to the organisation+platform pairing.
-	ScopePlatform AttributeScope = "platform"
-)
-
-// OrganizationAttribute is one extra source field, resolved through the
-// attribute map and ready to store.
-type OrganizationAttribute struct {
-	Name        string
-	Value       string
-	SourceField string
-	Scope       AttributeScope
-}
-
-// ---------------------------------------------------------------------------
 // The write contract
 //
 // The portal spans two services, so a write cannot hold a `SELECT … FOR UPDATE`
@@ -1305,61 +1179,6 @@ type SearchUsersResponse struct {
 	Limit  int       `json:"limit"`
 	Offset int       `json:"offset"`
 }
-
-// ---------------------------------------------------------------------------
-// Ingest
-// ---------------------------------------------------------------------------
-
-// IngestRegistrationsRequest is the body of POST /plg/registrations/ingest.
-//
-// A batch, because the queue can hand over several registrations in one
-// delivery and each must land independently — one bad record does not reject
-// the rest. Keeping the batch on this side of the wire is what preserves that:
-// the BFF's poller forwards what it received rather than issuing one call per
-// record and losing the per-record transaction.
-type IngestRegistrationsRequest struct {
-	Registrations []IngestRegistration `json:"registrations"`
-}
-
-// IngestRegistration is one registration on the wire, with its overflow
-// attributes already mapped.
-//
-// The mapping is NOT done here. Which incoming key becomes which portal field
-// is configuration — backend/source-map.json — and that file belongs to the
-// BFF, which is what reads the queue. By the time a registration reaches
-// entity-service the vocabulary question is settled and only the writing is
-// left, which is the division this whole contract is built on.
-type IngestRegistration struct {
-	Registration
-	Attributes []OrganizationAttribute `json:"attributes"`
-}
-
-// RecordIngestFailureRequest is the body of POST /plg/ingest-failures.
-//
-// An event consumed from the queue is deleted from it — there is no ack and no
-// redelivery — so an event that cannot be turned into a registration has
-// nowhere left to exist. This is where it goes.
-type RecordIngestFailureRequest struct {
-	EventID    *string         `json:"eventId"`
-	EventType  *string         `json:"eventType"`
-	ReceivedAt *time.Time      `json:"receivedAt"`
-	Payload    json.RawMessage `json:"payload"`
-	Failure    string          `json:"failure"`
-}
-
-// RecordIngestFailureResult answers POST /plg/ingest-failures.
-//
-// Deliberately empty. The row's generated id is NOT returned: parking a failure
-// is fire-and-forget for the poller, and failures are worked through by querying
-// plg_ingest_failure directly — `WHERE resolved_on IS NULL`, which is the
-// partial index the table carries for exactly that sweep.
-//
-// It previously declared an `id` that nothing ever populated, so every success
-// answered `{"id":""}`. An always-blank field is worse than no field: a caller
-// can reasonably read it as the id, or read blank as failure when the write in
-// fact succeeded. Returning `{}` says what is true — it worked, and there is
-// nothing further to tell you.
-type RecordIngestFailureResult struct{}
 
 // ---------------------------------------------------------------------------
 // The work-queue search body

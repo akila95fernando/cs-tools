@@ -1,8 +1,6 @@
 package handler
 
 import (
-	"crypto/subtle"
-	"encoding/json"
 	"net/http"
 	"strings"
 	"time"
@@ -15,13 +13,11 @@ import (
 
 // Handlers holds every HTTP handler and the services they delegate to.
 type Handlers struct {
-	reference  service.ReferenceService
-	orgs       service.OrganizationService
-	pairings   service.OrgPlatformService
-	playbooks  service.PlaybookService
-	analytics  service.AnalyticsService
-	ingest     service.IngestService
-	hookSecret string
+	reference service.ReferenceService
+	orgs      service.OrganizationService
+	pairings  service.OrgPlatformService
+	playbooks service.PlaybookService
+	analytics service.AnalyticsService
 }
 
 // NewHandlers wires the HTTP layer over the services.
@@ -31,13 +27,10 @@ func NewHandlers(
 	pairings service.OrgPlatformService,
 	playbooks service.PlaybookService,
 	analytics service.AnalyticsService,
-	ingest service.IngestService,
-	hookSecret string,
 ) *Handlers {
 	return &Handlers{
 		reference: reference, orgs: orgs, pairings: pairings,
-		playbooks: playbooks, analytics: analytics, ingest: ingest,
-		hookSecret: hookSecret,
+		playbooks: playbooks, analytics: analytics,
 	}
 }
 
@@ -428,53 +421,6 @@ func (h *Handlers) WorkQueue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, res)
-}
-
-// ---------------------------------------------------------------------------
-// The registration feed
-// ---------------------------------------------------------------------------
-
-// Register serves POST /webhooks/registrations.
-//
-// The body may be a source envelope, an array of records, or a single record —
-// which is what lets a row from plg_ingest_failure be replayed by posting it
-// back verbatim.
-func (h *Handlers) Register(w http.ResponseWriter, r *http.Request) {
-	if !h.authorizeWebhook(w, r) {
-		return
-	}
-
-	var raw json.RawMessage
-	if !decodeWebhookRequest(w, r, &raw) {
-		return
-	}
-
-	res, err := h.ingest.RegisterPayload(r.Context(), raw)
-	if err != nil {
-		writeServiceError(w, r, err)
-		return
-	}
-	// A single record answers with just its own result, so the common case reads
-	// the way it did before batching existed.
-	if len(res.Results) == 1 {
-		writeJSON(w, http.StatusAccepted, res.Results[0])
-		return
-	}
-	writeJSON(w, http.StatusAccepted, res)
-}
-
-// authorizeWebhook compares the shared secret in constant time. An unset secret
-// disables the check, which is only ever right for the local demo.
-func (h *Handlers) authorizeWebhook(w http.ResponseWriter, r *http.Request) bool {
-	if h.hookSecret == "" {
-		return true
-	}
-	got := r.Header.Get("X-PLG-Webhook-Secret")
-	if subtle.ConstantTimeCompare([]byte(got), []byte(h.hookSecret)) != 1 {
-		apierror.WriteJSON(w, http.StatusUnauthorized, "invalid webhook secret")
-		return false
-	}
-	return true
 }
 
 // ---------------------------------------------------------------------------

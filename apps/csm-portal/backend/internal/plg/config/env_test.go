@@ -27,20 +27,6 @@ func TestEveryConfigKeyHasAnEnvOverride(t *testing.T) {
 		{"PLG_SERVER_PORT", "9111", func(c *Config) string { return itoa(c.Server.Port) }},
 		{"PLG_SERVER_REQUEST_TIMEOUT_SECONDS", "43", func(c *Config) string { return itoa(c.Server.RequestTimeoutSeconds) }},
 		{"PLG_ALLOWED_ORIGINS", "https://a.test", func(c *Config) string { return c.Server.AllowedOrigins[0] }},
-		{"PLG_INGEST_SHARED_SECRET", "s3cret", func(c *Config) string { return c.Ingest.SharedSecret }},
-		{"PLG_SOURCE_MAP_PATH", "/mnt/config/source-map.json", func(c *Config) string { return c.Ingest.SourceMapPath }},
-		{"PLG_QUEUE_CONSUME_URL", "http://q.test/consume", func(c *Config) string { return c.Queue.ConsumeURL }},
-		{"PLG_QUEUE_POLL_INTERVAL_SECONDS", "11", func(c *Config) string { return itoa(c.Queue.PollIntervalSeconds) }},
-		{"PLG_QUEUE_LONG_POLL_SECONDS", "12", func(c *Config) string { return itoa(c.Queue.LongPollSeconds) }},
-		{"PLG_QUEUE_BATCH_SIZE", "13", func(c *Config) string { return itoa(c.Queue.BatchSize) }},
-		{"PLG_QUEUE_DRAIN_MAX_BATCHES", "14", func(c *Config) string { return itoa(c.Queue.DrainMaxBatches) }},
-		{"PLG_QUEUE_REQUEST_TIMEOUT_SECONDS", "77", func(c *Config) string { return itoa(c.Queue.RequestTimeoutSeconds) }},
-		{"PLG_QUEUE_AUTH_HEADER", "X-Key", func(c *Config) string { return c.Queue.AuthHeader }},
-		{"PLG_QUEUE_AUTH_TOKEN", "tok", func(c *Config) string { return c.Queue.AuthToken }},
-		{"PLG_QUEUE_OAUTH_TOKEN_URL", "http://idp.test/token", func(c *Config) string { return c.Queue.OAuth.TokenURL }},
-		{"PLG_QUEUE_OAUTH_CLIENT_ID", "cid", func(c *Config) string { return c.Queue.OAuth.ClientID }},
-		{"PLG_QUEUE_OAUTH_CLIENT_SECRET", "csec", func(c *Config) string { return c.Queue.OAuth.ClientSecret }},
-		{"PLG_QUEUE_OAUTH_SCOPE", "read", func(c *Config) string { return c.Queue.OAuth.Scope }},
 		{"PLG_LOG_LEVEL", "WARN", func(c *Config) string { return c.Logging.Level }},
 		{"PLG_LOG_FORMAT", "json", func(c *Config) string { return c.Logging.Format }},
 	}
@@ -57,32 +43,18 @@ func TestEveryConfigKeyHasAnEnvOverride(t *testing.T) {
 	}
 }
 
-// Booleans and lists take their own paths through applyEnvOverrides, so they
-// are asserted separately rather than squeezed into the string table above.
-func TestBooleanAndListOverrides(t *testing.T) {
-	t.Run("PLG_QUEUE_ENABLED", func(t *testing.T) {
-		for _, v := range []string{"true", "1"} {
-			t.Setenv("PLG_QUEUE_ENABLED", v)
-			c := &Config{}
-			applyEnvOverrides(c)
-			if !c.Queue.Enabled {
-				t.Errorf("PLG_QUEUE_ENABLED=%q did not enable the queue", v)
-			}
-		}
-		t.Setenv("PLG_QUEUE_ENABLED", "false")
-		c := &Config{Queue: QueueConfig{Enabled: true}}
-		applyEnvOverrides(c)
-		if c.Queue.Enabled {
-			t.Error(`PLG_QUEUE_ENABLED="false" did not disable the queue`)
-		}
-	})
-
-	t.Run("PLG_QUEUE_EVENT_TYPES", func(t *testing.T) {
-		t.Setenv("PLG_QUEUE_EVENT_TYPES", "a, b ,c")
+// Lists take their own path through applyEnvOverrides, so the one that remains
+// is asserted separately rather than squeezed into the string table above.
+//
+// This used to cover the queue's boolean and list variables too. They went when
+// registrations stopped being polled by this backend — see package plg.
+func TestListOverrides(t *testing.T) {
+	t.Run("PLG_ALLOWED_ORIGINS", func(t *testing.T) {
+		t.Setenv("PLG_ALLOWED_ORIGINS", "https://a.test, https://b.test ,https://c.test")
 		c := &Config{}
 		applyEnvOverrides(c)
-		if len(c.Queue.EventTypes) != 3 || c.Queue.EventTypes[1] != "b" {
-			t.Errorf("list not split and trimmed: %#v", c.Queue.EventTypes)
+		if len(c.Server.AllowedOrigins) != 3 || c.Server.AllowedOrigins[1] != "https://b.test" {
+			t.Errorf("list not split and trimmed: %#v", c.Server.AllowedOrigins)
 		}
 	})
 }

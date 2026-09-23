@@ -1093,18 +1093,20 @@ type DashboardAnalytics struct {
 // send it. Absent stays absent: the sparse-upsert rule keeps NULL meaning
 // "never received".
 type Registration struct {
-	OrganizationName      string
-	RegisteredEmail       string
-	CreatedOn             *SourceTime
-	InitiatedPlatform     string
-	CountryName           string
-	CompanyNameFromDomain string
-	CompanyID             string
-	FirstName             string
-	LastName              string
+	OrganizationName      string      `json:"organizationName"`
+	RegisteredEmail       string      `json:"registeredEmail"`
+	CreatedOn             *SourceTime `json:"createdOn"`
+	InitiatedPlatform     string      `json:"initiatedPlatform"`
+	CountryName           string      `json:"countryName"`
+	CompanyNameFromDomain string      `json:"companyNameFromDomain"`
+	CompanyID             string      `json:"companyId"`
+	FirstName             string      `json:"firstName"`
+	LastName              string      `json:"lastName"`
 
 	// Extra holds the mapped extra fields, keyed by their portal-side name.
-	Extra map[string]string
+	// Not part of the wire contract: the caller sends Attributes instead, which
+	// is Extra already resolved through the source map.
+	Extra map[string]string `json:"-"`
 }
 
 // SourceTime is a timestamp as a source actually sends it.
@@ -1194,10 +1196,10 @@ const (
 // OrganizationAttribute is one extra source field, resolved through the
 // attribute map and ready to store.
 type OrganizationAttribute struct {
-	Name        string
-	Value       string
-	SourceField string
-	Scope       AttributeScope
+	Name        string         `json:"name"`
+	Value       string         `json:"value"`
+	SourceField string         `json:"sourceField"`
+	Scope       AttributeScope `json:"scope"`
 }
 
 // ---------------------------------------------------------------------------

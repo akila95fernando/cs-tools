@@ -14,7 +14,6 @@ package repository
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/wso2-open-operations/cs-tools/apps/csm-portal/backend/internal/plg/domain"
 )
@@ -67,28 +66,4 @@ type PlaybookRepository interface {
 type AnalyticsRepository interface {
 	Dashboard(ctx context.Context, rng domain.AnalyticsRange) (*domain.DashboardAnalytics, error)
 	WorkQueue(ctx context.Context, f domain.WorkQueueFilters) (*domain.WorkQueueResponse, error)
-}
-
-// IngestRepository lands one registration.
-type IngestRepository interface {
-	Register(ctx context.Context, in domain.Registration, attrs []domain.OrganizationAttribute) (*domain.IngestResult, error)
-}
-
-// FailureRepository records events the poller consumed but could not land.
-//
-// The queue deletes on consume — no ack, no redelivery — so an event that fails
-// to become a registration has nowhere else to exist. A non-empty table means
-// registrations arrived and were not recorded.
-type FailureRepository interface {
-	Record(ctx context.Context, f IngestFailure) error
-	OpenCount(ctx context.Context) (int, error)
-}
-
-// IngestFailure is one unprocessable event.
-type IngestFailure struct {
-	EventID    string
-	EventType  string
-	ReceivedAt *string
-	Payload    json.RawMessage
-	Failure    string
 }

@@ -29,9 +29,6 @@ type PlaybookRepo struct{ *Client }
 // AnalyticsRepo adapts Client to repository.AnalyticsRepository.
 type AnalyticsRepo struct{ *Client }
 
-// IngestRepo adapts Client to repository.IngestRepository.
-type IngestRepo struct{ *Client }
-
 // The disambiguating methods. Each forwards to the distinctly-named Client
 // method beneath it.
 

@@ -6,7 +6,6 @@ import (
 
 	"github.com/wso2-open-operations/cs-tools/apps/csm-portal/backend/internal/plg/apierror"
 	"github.com/wso2-open-operations/cs-tools/apps/csm-portal/backend/internal/plg/domain"
-	"github.com/wso2-open-operations/cs-tools/apps/csm-portal/backend/internal/plg/repository"
 )
 
 // The six repository interfaces the services are written against, served over
@@ -358,52 +357,4 @@ func (c *Client) WorkQueue(ctx context.Context, f domain.WorkQueueFilters) (*dom
 		return nil, err
 	}
 	return &out, nil
-}
-
-// ---------------------------------------------------------------------------
-// Ingest
-// ---------------------------------------------------------------------------
-
-// Register lands one registration. The poller calls this per record; the
-// transaction that makes it atomic is entity-service's.
-func (c *Client) Register(ctx context.Context, in domain.Registration, attrs []domain.OrganizationAttribute) (*domain.IngestResult, error) {
-	body := domain.IngestRegistrationsRequest{
-		Registrations: []domain.IngestRegistration{{Registration: in, Attributes: attrs}},
-	}
-	var out domain.IngestBatchResult
-	if err := c.post(ctx, "/plg/registrations/ingest", body, &out); err != nil {
-		return nil, err
-	}
-	if len(out.Results) == 0 {
-		return nil, &apierror.ServiceUnavailableError{Msg: "the entity service returned no ingest result"}
-	}
-	return &out.Results[0], nil
-}
-
-// ---------------------------------------------------------------------------
-// Ingest failures
-// ---------------------------------------------------------------------------
-
-// Record stores an event that could not be landed.
-func (c *Client) Record(ctx context.Context, f repository.IngestFailure) error {
-	body := map[string]any{
-		"eventId": nilIfEmpty(f.EventID), "eventType": nilIfEmpty(f.EventType),
-		"receivedAt": f.ReceivedAt, "payload": f.Payload, "failure": f.Failure,
-	}
-	return c.post(ctx, "/plg/ingest-failures", body, nil)
-}
-
-// OpenCount reports how many failures are still unresolved.
-//
-// Called once at startup to log a warning when replay is outstanding. There is
-// no entity-service endpoint for it and inventing one to serve a log line would
-// be the wrong trade, so it reports zero: the table is still there to be read
-// directly by whoever is investigating.
-func (c *Client) OpenCount(ctx context.Context) (int, error) { return 0, nil }
-
-func nilIfEmpty(s string) *string {
-	if s == "" {
-		return nil
-	}
-	return &s
 }

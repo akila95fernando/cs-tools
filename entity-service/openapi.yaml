@@ -8412,8 +8412,12 @@ paths:
             schema:
               $ref: "#/components/schemas/PlgIngestRegistrationsRequest"
       responses:
-        "200":
-          description: Per-record outcomes.
+        "202":
+          description: >-
+            Accepted, with per-record outcomes. 202 rather than 201 because each
+            registration lands in its own transaction and the batch reports each
+            one separately, so a 2xx does not mean every record landed — read
+            `failed` and the per-result `status`.
           content:
             application/json:
               schema:
@@ -8451,7 +8455,7 @@ paths:
             schema:
               $ref: "#/components/schemas/PlgRecordIngestFailureRequest"
       responses:
-        "200":
+        "201":
           description: Recorded.
           content:
             application/json:
@@ -20563,22 +20567,113 @@ components:
     PlgIngestRegistrationsRequest:
       type: object
       description: A batch. Each registration lands in its own transaction.
+      required:
+        - registrations
       properties:
         registrations:
           type: array
           items:
-            type: object
-            additionalProperties: true
+            $ref: "#/components/schemas/PlgIngestRegistration"
+
+    PlgIngestRegistration:
+      type: object
+      description: >-
+        One registration, already in the portal's own terms. The caller — the
+        webhook-queue service — has resolved the analytics source's field names
+        and platform words through its source map before sending this, so
+        `initiatedPlatform` must already be a `plg_product.code` and not
+        whatever the source calls it.
+      required:
+        - organizationName
+        - registeredEmail
+      properties:
+        organizationName:
+          type: string
+          description: Unique. A redelivered registration is a no-op because of it.
+        registeredEmail:
+          type: string
+          format: email
+        createdOn:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the source says the organisation was created. Null when it did not say.
+        initiatedPlatform:
+          type: string
+          description: >-
+            A product code. Empty registers the customer with no pairing, which
+            is legitimate — the pairing can arrive with a later event. A value
+            matching no `plg_product.code` rejects the whole registration, the
+            organisation included, because they land in one transaction.
+          example: IAM
+        countryName:
+          type: string
+        companyNameFromDomain:
+          type: string
+        companyId:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        attributes:
+          type: array
+          nullable: true
+          description: Extra source fields worth keeping beyond the columns above.
+          items:
+            $ref: "#/components/schemas/PlgOrganizationAttribute"
+
+    PlgOrganizationAttribute:
+      type: object
+      required:
+        - name
+        - value
+        - scope
+      properties:
+        name:
+          type: string
+          description: The portal-side name, lower_snake_case.
+        value:
+          type: string
+        sourceField:
+          type: string
+          description: The key this came from on the incoming record, kept for traceability.
+        scope:
+          type: string
+          enum: [organization, platform]
+          description: >-
+            Whether the value describes the customer or one platform under it.
+            The ingest cannot infer this, so the caller's source map decides.
     PlgIngestResult:
       type: object
+      description: >-
+        What became of each registration in the batch, in the order they were
+        sent. There is exactly one result per registration, which is what lets a
+        caller attribute a rejection back to the record that caused it.
+      required:
+        - accepted
+        - failed
+        - results
       properties:
+        accepted:
+          type: integer
+          description: How many landed.
+        failed:
+          type: integer
+          description: How many did not. Non-zero with a 2xx is normal — see the endpoint description.
         results:
           type: array
           items:
             type: object
+            required:
+              - status
             properties:
               status:
                 type: string
+                description: >-
+                  `created`, `updated` or `unchanged` when the registration
+                  landed; `FAILED` when it did not.
+                enum: [created, updated, unchanged, FAILED]
               organizationName:
                 type: string
               organizationId:
@@ -20587,18 +20682,40 @@ components:
               orgPlatformId:
                 type: string
                 format: uuid
+                nullable: true
+                description: Null when the registration carried no platform.
+              personEmail:
+                type: string
+                format: email
               message:
                 type: string
+                description: Why, in words — the reason for a FAILED record, or what changed for one that landed.
     PlgRecordIngestFailureRequest:
       type: object
+      description: >-
+        One event that could not be turned into a registration. The payload is
+        stored verbatim so the row can be replayed later.
       required:
         - payload
-        - reason
+        - failure
       properties:
+        eventId:
+          type: string
+          nullable: true
+          description: The queue's id for the delivery this came from.
+        eventType:
+          type: string
+          nullable: true
+        receivedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the queue accepted the delivery.
         payload:
-          type: object
-          additionalProperties: true
-        reason:
+          description: >-
+            The record as it stood when it failed, stored verbatim. Any JSON —
+            an object for a record that would not resolve, or whatever arrived
+            for a payload that would not even split.
+        failure:
           type: string
-        source:
-          type: string
+          description: Why it could not be landed. Required and must not be empty.

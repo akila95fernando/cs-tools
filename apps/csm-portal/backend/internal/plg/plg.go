@@ -14,10 +14,25 @@
 //     comes from the validated token, so there is no header to spoof.
 //   - No /plg/health. csm-portal has /health; a second liveness endpoint
 //     answering for one application inside a shared service is a probe that lies.
+//   - No registration feed. Registrations are landed by the webhook-queue
+//     service, which posts them straight to entity-service's ingest — see
+//     WHERE REGISTRATIONS COME FROM below. This package only reads them back.
 //
-// The queue poller comes across unchanged and runs as a goroutine for the
-// lifetime of the process, which is a thing csm-portal's backend did not
-// previously have. It is off unless configured.
+// WHERE REGISTRATIONS COME FROM. Nothing here ingests. The analytics source
+// publishes to the webhook-queue service, and that service translates each
+// record out of the source's vocabulary and posts it to entity-service's
+// POST /plg/registrations/ingest on a timer.
+//
+// This backend polled that queue and did the translating itself, which put a
+// poller, a source map, a record resolver and a set of ingest webhooks inside a
+// backend-for-frontend — some 1,900 lines with no bearing on serving the
+// frontend. The queue service already receives the analytics
+// source's traffic, so the knowledge of that source belongs there, and the
+// transaction was always entity-service's.
+//
+// What this means for anyone reading the configuration: there is no PLG_QUEUE_*,
+// no PLG_SOURCE_MAP_PATH and no PLG_INGEST_SHARED_SECRET any more. They moved to
+// the queue service as ENTITY_BASE_URL, SOURCE_MAP_PATH and the OAUTH2_* pair.
 package plg
 
 import (
@@ -35,26 +50,26 @@ import (
 	"github.com/wso2-open-operations/cs-tools/apps/csm-portal/backend/internal/plg/entityclient"
 	"github.com/wso2-open-operations/cs-tools/apps/csm-portal/backend/internal/plg/handler"
 	plgmw "github.com/wso2-open-operations/cs-tools/apps/csm-portal/backend/internal/plg/middleware"
-	"github.com/wso2-open-operations/cs-tools/apps/csm-portal/backend/internal/plg/queue"
 	"github.com/wso2-open-operations/cs-tools/apps/csm-portal/backend/internal/plg/service"
 )
 
-// Mount wires PLG onto mux and returns a shutdown function for the poller.
+// Mount wires PLG onto mux.
 //
 // cfgPath points at PLG's own config.json — or nothing, in which case every
 // setting comes from the PLG_* environment variables. Choreo deploys from
 // environment alone, so the file is optional by design.
 //
-// A nil error with a nil shutdown means PLG is configured off.
+// It returns no shutdown function because it starts nothing: PLG is a set of
+// handlers on csm-portal's mux and owns no goroutine. It did own one, for the
+// queue poller, until registrations moved to the webhook-queue service.
 func Mount(
-	ctx context.Context,
 	mux *http.ServeMux,
 	cfgPath string,
 	entityDefaults config.EntityDefaults,
-) (func(), error) {
+) error {
 	cfg, err := config.LoadWith(cfgPath, entityDefaults)
 	if err != nil {
-		return nil, fmt.Errorf("plg: %w", err)
+		return fmt.Errorf("plg: %w", err)
 	}
 
 	// One client, shared. It holds a connection pool of its own (net/http's)
@@ -72,79 +87,22 @@ func Mount(
 		HTTPClient: entityHTTPClient(cfg.Entity.OAuth, timeout),
 	})
 
-	// Loaded before the listener opens: a MALFORMED map is a startup failure,
-	// not something to discover on the first webhook delivery.
-	//
-	// A MISSING one is not, deliberately. PLG is a feature inside csm-portal, and
-	// this function's error is os.Exit(1) for the whole backend — so failing here
-	// would turn one feature's configuration mistake into an outage for cases,
-	// incidents, dashboards and everything else. It is also not destructive: a
-	// record the map cannot resolve is written to plg_ingest_failure verbatim and
-	// can be replayed once the file is mounted (see queue.Poller.recordFailure).
-	sourceMap, err := config.LoadSourceMap(cfg.Ingest.SourceMapPath)
-	if err != nil {
-		return nil, fmt.Errorf("plg: %w", err)
-	}
-	fields, platforms, attributes := sourceMap.Counts()
-
-	// WARN rather than INFO when ingestion is on and the map is empty, because
-	// that combination is always a mistake: the poller will consume events it
-	// cannot map and park every one of them in plg_ingest_failure. The counts
-	// alone said so at INFO, but "fields=0" is not something anyone reads a log
-	// looking for.
-	if cfg.Queue.Enabled && fields == 0 {
-		slog.Warn("plg: ingestion is enabled but the source map is empty — "+
-			"every registration will fail and be parked in plg_ingest_failure",
-			"sourceMapPath", cfg.Ingest.SourceMapPath,
-			"hint", "check PLG_SOURCE_MAP_PATH points at the mounted file")
-	} else {
-		slog.Info("plg: source map loaded",
-			"fields", fields, "platformNames", platforms, "extraAttributes", attributes)
-	}
-
 	handlers := handler.NewHandlers(
 		service.NewReferenceService(entityclient.ReferenceRepo{Client: entity}),
 		service.NewOrganizationService(entityclient.OrganizationRepo{Client: entity}),
 		service.NewOrgPlatformService(entityclient.OrgPlatformRepo{Client: entity}),
 		service.NewPlaybookService(entityclient.PlaybookRepo{Client: entity}),
 		service.NewAnalyticsService(entityclient.AnalyticsRepo{Client: entity}),
-		service.NewIngestService(entityclient.IngestRepo{Client: entity}, sourceMap),
-		cfg.Ingest.SharedSecret,
 	)
 
 	// PLG's routes carry one extra middleware of their own: the identity
 	// resolver, which turns the validated caller into the "user".id every PLG
 	// write records. It wraps only this subtree — csm-portal's routes neither
 	// need it nor pay for it.
-	identity := plgmw.ResolveIdentity(entity)
-	register(mux, handlers, identity)
+	register(mux, handlers, plgmw.ResolveIdentity(entity))
 
-	// The registration feed. The source publishes to the webhook-queue service;
-	// the portal consumes from it here and lands each registration through
-	// entity-service, which owns the transaction.
-	if !cfg.Queue.Enabled {
-		slog.Info("plg: queue poller disabled", "reason", "queue.enabled is false")
-		return func() {}, nil
-	}
-
-	pollerCtx, stopPoller := context.WithCancel(ctx)
-	done := make(chan struct{})
-	poller := queue.NewPoller(
-		cfg.Queue,
-		service.NewIngestService(entityclient.IngestRepo{Client: entity}, sourceMap),
-		entity,
-	)
-	go func() {
-		defer close(done)
-		poller.Run(pollerCtx)
-	}()
-	slog.Info("plg: queue poller started",
-		"consumeURL", cfg.Queue.ConsumeURL, "intervalSeconds", cfg.Queue.PollIntervalSeconds)
-
-	return func() {
-		stopPoller()
-		<-done
-	}, nil
+	slog.Info("plg: mounted", "entityBaseURL", cfg.Entity.BaseURL)
+	return nil
 }
 
 // register mounts PLG's routes, each wrapped in the identity middleware.
@@ -170,6 +128,10 @@ func Mount(
 //
 // If PLG ever needs to distinguish who may WRITE, this is the place to add it,
 // and accessGuard is the thing to reach for rather than a second scheme.
+//
+// Every route below is a read or a write made by a person. There is no machine
+// caller: registrations reach the database through the webhook-queue service
+// posting to entity-service, never through this backend.
 func register(mux *http.ServeMux, h *handler.Handlers, identity func(http.Handler) http.Handler) {
 	add := func(pattern string, fn http.HandlerFunc) {
 		mux.Handle(pattern, identity(fn))
@@ -212,28 +174,6 @@ func register(mux *http.ServeMux, h *handler.Handlers, identity func(http.Handle
 	// Analytics.
 	add("GET /plg/analytics/dashboard", h.Dashboard)
 	add("GET /plg/work-queue", h.WorkQueue)
-
-	// The registration feed — PLG STAFF ONLY, like every route above.
-	//
-	// These once skipped `identity` on the reasoning that a queue delivery is not
-	// a person. That was the wrong trade in this deployment. Registrations arrive
-	// by POLLING: queue.Poller calls the ingest service in-process and never
-	// touches these handlers, so no machine publisher needs them. What they are
-	// actually for is REPLAY — re-landing a parked plg_ingest_failure row — and
-	// that is done by an engineer, who is staff.
-	//
-	// Leaving them unguarded meant any authenticated csm-portal user could create
-	// PLG organisations whenever PLG_INGEST_SHARED_SECRET was unset, because
-	// authorizeWebhook admits everyone when the secret is blank. Gating on
-	// identity removes that: the weakest configuration is now "staff only"
-	// instead of "anyone with a token".
-	//
-	// The shared secret still applies on top when configured, so a deployment
-	// that does want a machine publisher can keep one — but it would need a token
-	// belonging to an active INTERNAL user, which is the right amount of friction
-	// for something that creates customer records.
-	add("POST /plg/webhooks/registrations", h.Register)
-	add("POST /plg/webhooks/registration", h.Register)
 }
 
 // entityHTTPClient returns a client that attaches an OAuth2 bearer token to

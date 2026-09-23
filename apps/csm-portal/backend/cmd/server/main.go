@@ -371,18 +371,16 @@ func main() {
 	// its own copy: it reaches the same service as the same OAuth2 application
 	// as every other upstream client above. PLG_* overrides exist but are not
 	// normally set.
-	stopPLG, err := plg.Mount(ctx, mux, os.Getenv("PLG_CONFIG_FILE"), plgconfig.EntityDefaults{
+	if err := plg.Mount(mux, os.Getenv("PLG_CONFIG_FILE"), plgconfig.EntityDefaults{
 		BaseURL:      customerEntityCfg.BaseURL,
 		TokenURL:     oauth2TokenURL,
 		ClientID:     oauth2ClientID,
 		ClientSecret: oauth2ClientSecret,
 		Scope:        os.Getenv("CUSTOMER_ENTITY_SCOPES"),
-	})
-	if err != nil {
+	}); err != nil {
 		slog.Error("failed to mount PLG", "err", err)
 		os.Exit(1)
 	}
-	defer stopPLG()
 
 	addr := ":" + mustPort("PORT", "8080")
 

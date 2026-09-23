@@ -54,28 +54,6 @@ func decodeOptionalRequest[T any](w http.ResponseWriter, r *http.Request, dst *T
 	return true
 }
 
-// decodeWebhookRequest is decodeRequest for the inbound registration feed, where
-// unknown fields are expected rather than a mistake.
-//
-// The portal's own API stays strict: an unknown field there is a caller error
-// worth reporting. The feed is the opposite — a source can add a field at any
-// time, and refusing the delivery over one the portal has no column for would
-// stop registrations arriving entirely. Which keys the portal reads is decided
-// by the source map, and everything else is ignored.
-func decodeWebhookRequest[T any](w http.ResponseWriter, r *http.Request, dst *T) bool {
-	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodySize)
-	dec := json.NewDecoder(r.Body)
-	if err := dec.Decode(dst); err != nil {
-		apierror.WriteJSON(w, http.StatusBadRequest, decodeErrMsg(err))
-		return false
-	}
-	if err := dec.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		apierror.WriteJSON(w, http.StatusBadRequest, "request body must contain a single JSON value")
-		return false
-	}
-	return true
-}
-
 func decodeErrMsg(err error) string {
 	var maxBytes *http.MaxBytesError
 	if errors.As(err, &maxBytes) {

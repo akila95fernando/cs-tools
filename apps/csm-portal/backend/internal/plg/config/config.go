@@ -27,86 +27,6 @@ type ServerConfig struct {
 	RequestTimeoutSeconds int `json:"requestTimeoutSeconds"`
 }
 
-// IngestConfig covers how registrations reach the portal.
-type IngestConfig struct {
-	// SharedSecret is compared against the X-PLG-Webhook-Secret header on every
-	// inbound registration call. Empty disables the check, which is for the
-	// local demo only — a deployment without it accepts anyone's payload.
-	SharedSecret string `json:"sharedSecret"`
-
-	// SourceMapPath points at the file describing how the upstream source words
-	// things: which key holds each of the portal's fields, what it calls each
-	// platform, and which extra fields are worth storing.
-	//
-	// Its own file, so a source change is a one-line edit that goes nowhere near
-	// database credentials — and so changing source needs no rebuild.
-	SourceMapPath string `json:"sourceMapPath"`
-}
-
-// QueueConfig describes the webhook-queue service the portal polls for
-// registration events.
-//
-// The source publishes to that service; the portal is a consumer, not a
-// listener. Everything here is configurable because the queue moves between
-// environments — a local process, then a Choreo-managed endpoint.
-type QueueConfig struct {
-	// Enabled starts the poller. False leaves the portal running with no queue
-	// consumer at all, which is what the demo and the tests want.
-	Enabled bool `json:"enabled"`
-
-	// ConsumeURL is the queue's consume endpoint, including the base path —
-	// e.g. https://queue.example.com/api/v1/queue/consume
-	ConsumeURL string `json:"consumeUrl"`
-
-	// PollIntervalSeconds is the gap between polls when the queue is empty.
-	PollIntervalSeconds int `json:"pollIntervalSeconds"`
-
-	// BatchSize is the `count` asked for on each call. The queue caps this at
-	// its own MAX_CONSUME_BATCH, so asking for more than that quietly gets less.
-	BatchSize int `json:"batchSize"`
-
-	// LongPollSeconds is the `wait` parameter: the queue holds the request open
-	// until an event arrives, and answers the instant one does.
-	//
-	// This, not PollIntervalSeconds, is what decides how quickly a registration
-	// is noticed. The poller is only listening while a long poll is open, so the
-	// fraction of time it is listening is roughly
-	// LongPollSeconds / (LongPollSeconds + PollIntervalSeconds) — which is why
-	// the defaults are a long wait and a short interval. The queue enforces its
-	// own upper bound (30s by default).
-	LongPollSeconds int `json:"longPollSeconds"`
-
-	// DrainMaxBatches bounds one tick. When the queue reports events still
-	// waiting, the poller keeps consuming rather than taking one batch per
-	// interval — otherwise a backlog of 500 would take 10 intervals to clear.
-	DrainMaxBatches int `json:"drainMaxBatches"`
-
-	// RequestTimeoutSeconds bounds one HTTP call. It must exceed
-	// LongPollSeconds, or every long poll times out client-side.
-	RequestTimeoutSeconds int `json:"requestTimeoutSeconds"`
-
-	// AuthHeader and AuthToken send a fixed header on every consume — an API key,
-	// or a long-lived token. Empty means no header is sent. For a queue behind
-	// OAuth2 use OAuth below instead: a static token cannot be refreshed.
-	AuthHeader string `json:"authHeader"`
-	AuthToken  string `json:"authToken"`
-
-	// OAuth turns on the client-credentials grant. The portal fetches a bearer
-	// token from the authorisation server, caches it until shortly before it
-	// expires, and refetches when the queue rejects it.
-	OAuth OAuth2Config `json:"oauth2"`
-
-	// EventTypes optionally restricts which event types are treated as
-	// registrations. Empty accepts every event.
-	//
-	// This matters because consuming deletes: if the queue also carries events
-	// this portal does not handle, they still arrive here and are still removed
-	// from the queue. Anything not accepted is written to plg_ingest_failure
-	// rather than dropped, so a shared queue does not lose other consumers' work
-	// silently.
-	EventTypes []string `json:"eventTypes"`
-}
-
 // OAuth2Config describes the client-credentials grant the portal uses to reach a
 // protected queue.
 //
@@ -133,7 +53,6 @@ func (o OAuth2Config) Enabled() bool {
 
 // validate refuses a half-configured grant, and refuses to put a client secret
 // on the wire in plaintext.
-func (o OAuth2Config) validate() error { return o.validateNamed("queue.oauth2") }
 
 // validateNamed is validate with the configuration block's name in the message,
 // so a failure says which grant is wrong when there is more than one.
@@ -180,8 +99,6 @@ type Config struct {
 	// reaches entity-service over HTTP, so this is a base URL.
 	Entity  EntityConfig  `json:"entity"`
 	Server  ServerConfig  `json:"server"`
-	Ingest  IngestConfig  `json:"ingest"`
-	Queue   QueueConfig   `json:"queue"`
 	Logging LoggingConfig `json:"logging"`
 }
 
@@ -327,23 +244,6 @@ func applyDefaults(c *Config) {
 		c.Logging.Format = "text"
 	}
 
-	if c.Queue.PollIntervalSeconds == 0 {
-		// Short, because longPollSeconds does the waiting. The queue holds each
-		// request open, so this is only the gap between one long poll and the
-		// next — a long interval here just means time spent not listening.
-		c.Queue.PollIntervalSeconds = 2
-	}
-	if c.Queue.BatchSize == 0 {
-		c.Queue.BatchSize = 50
-	}
-	if c.Queue.DrainMaxBatches == 0 {
-		c.Queue.DrainMaxBatches = 20
-	}
-	if c.Queue.RequestTimeoutSeconds == 0 {
-		// Comfortably past the long poll, so the queue decides when to answer
-		// rather than the client giving up first.
-		c.Queue.RequestTimeoutSeconds = c.Queue.LongPollSeconds + 30
-	}
 }
 
 func applyEnvOverrides(c *Config) {
@@ -361,28 +261,6 @@ func applyEnvOverrides(c *Config) {
 	// reachable in a local config file and unreachable in the place it would
 	// actually need tuning.
 	setInt(&c.Server.RequestTimeoutSeconds, "PLG_SERVER_REQUEST_TIMEOUT_SECONDS")
-	setString(&c.Ingest.SharedSecret, "PLG_INGEST_SHARED_SECRET")
-	setString(&c.Ingest.SourceMapPath, "PLG_SOURCE_MAP_PATH")
-	setString(&c.Queue.ConsumeURL, "PLG_QUEUE_CONSUME_URL")
-	setInt(&c.Queue.PollIntervalSeconds, "PLG_QUEUE_POLL_INTERVAL_SECONDS")
-	setInt(&c.Queue.BatchSize, "PLG_QUEUE_BATCH_SIZE")
-	setInt(&c.Queue.LongPollSeconds, "PLG_QUEUE_LONG_POLL_SECONDS")
-	setInt(&c.Queue.DrainMaxBatches, "PLG_QUEUE_DRAIN_MAX_BATCHES")
-	setInt(&c.Queue.RequestTimeoutSeconds, "PLG_QUEUE_REQUEST_TIMEOUT_SECONDS")
-	setString(&c.Queue.OAuth.TokenURL, "PLG_QUEUE_OAUTH_TOKEN_URL")
-	setString(&c.Queue.OAuth.ClientID, "PLG_QUEUE_OAUTH_CLIENT_ID")
-	setString(&c.Queue.OAuth.ClientSecret, "PLG_QUEUE_OAUTH_CLIENT_SECRET")
-	setString(&c.Queue.OAuth.Scope, "PLG_QUEUE_OAUTH_SCOPE")
-	setString(&c.Queue.AuthHeader, "PLG_QUEUE_AUTH_HEADER")
-	setString(&c.Queue.AuthToken, "PLG_QUEUE_AUTH_TOKEN")
-
-	if v := os.Getenv("PLG_QUEUE_ENABLED"); v != "" {
-		c.Queue.Enabled = v == "true" || v == "1"
-	}
-	if v := os.Getenv("PLG_QUEUE_EVENT_TYPES"); v != "" {
-		c.Queue.EventTypes = splitList(v)
-	}
-
 	if v := os.Getenv("PLG_ALLOWED_ORIGINS"); v != "" {
 		c.Server.AllowedOrigins = splitList(v)
 	}
@@ -436,61 +314,17 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("logging.format %q must be \"text\" or \"json\"", c.Logging.Format)
 	}
 
-	if c.Queue.Enabled {
-		if c.Queue.ConsumeURL == "" {
-			return errors.New("queue.consumeUrl is required when the queue poller is enabled " +
-				"(config file `queue.consumeUrl` or PLG_QUEUE_CONSUME_URL)")
-		}
-		u, err := url.Parse(c.Queue.ConsumeURL)
-		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-			return fmt.Errorf("queue.consumeUrl %q must be an absolute http(s) URL", c.Queue.ConsumeURL)
-		}
-		if c.Queue.PollIntervalSeconds < 1 {
-			return fmt.Errorf("queue.pollIntervalSeconds %d must be at least 1", c.Queue.PollIntervalSeconds)
-		}
-		if c.Queue.BatchSize < 1 {
-			return fmt.Errorf("queue.batchSize %d must be at least 1", c.Queue.BatchSize)
-		}
-		// A client that gives up before the queue answers turns every long poll
-		// into a timeout, and the backlog never clears.
-		if c.Queue.RequestTimeoutSeconds <= c.Queue.LongPollSeconds {
-			return fmt.Errorf(
-				"queue.requestTimeoutSeconds (%d) must exceed longPollSeconds (%d)",
-				c.Queue.RequestTimeoutSeconds, c.Queue.LongPollSeconds)
-		}
-		if c.Queue.AuthToken != "" && c.Queue.AuthHeader == "" {
-			return errors.New("queue.authToken is set but authHeader is empty — " +
-				"name the header the token belongs in, e.g. \"Authorization\"")
-		}
-		if err := c.Queue.OAuth.validate(); err != nil {
-			return err
-		}
-		// Both would write Authorization, and one would silently win.
-		if c.Queue.OAuth.Enabled() && strings.EqualFold(c.Queue.AuthHeader, "Authorization") {
-			return errors.New("queue.oauth2 and queue.authHeader \"Authorization\" both set the " +
-				"same header — use one or the other")
-		}
-	}
 	return nil
 }
 
 // Redacted returns a copy safe to log.
 //
-// The BFF has no database, so the only secret here is the ingest shared
-// secret.
+// The BFF has no database and no ingest credentials of its own, so the only
+// secret left is the entity-service client secret.
 func (c *Config) Redacted() Config {
 	cp := *c
-	if cp.Ingest.SharedSecret != "" {
-		cp.Ingest.SharedSecret = "********"
-	}
 	if cp.Entity.OAuth.ClientSecret != "" {
 		cp.Entity.OAuth.ClientSecret = "********"
-	}
-	if cp.Queue.AuthToken != "" {
-		cp.Queue.AuthToken = "********"
-	}
-	if cp.Queue.OAuth.ClientSecret != "" {
-		cp.Queue.OAuth.ClientSecret = "********"
 	}
 	return cp
 }
